@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Models\Student;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DisputeController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -21,6 +22,8 @@ Route::get('/', function () {
 Route::post('/identify', [AuthController::class, 'identify']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/units/search', [DisputeController::class, 'searchUnits']);
+Route::post('/disputes', [DisputeController::class, 'store']);
 
 
 Route::get('/test-model', function () {

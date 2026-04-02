@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'identify',
             'set-password',
             'login',
+            'disputes',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
