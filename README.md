@@ -26,8 +26,4 @@ Instead of replacing existing academic databases, this project introduces a proc
 
 * Transparency: Real-time tracking of dispute status.
 * Efficiency: Faster resolution times through automated routing.
-* Integration: Enhances administrative processes without requiring a total overhaul of existing institutional systems. [4, 5] 
-
-
-
->>>>>>> 64ac6bcb8a163ba471ea91714287a0513a35b588
+* Integration: Enhances administrative processes without requiring a total overhaul of existing institutional systems.
