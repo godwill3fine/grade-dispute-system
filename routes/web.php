@@ -24,6 +24,18 @@ Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/units/search', [DisputeController::class, 'searchUnits']);
 Route::post('/disputes', [DisputeController::class, 'store']);
+Route::get('/lecturer/disputes/{lecturer_id}', [DisputeController::class, 'lecturerDisputes']);
+Route::post('/dispute/update-status', [DisputeController::class, 'updateStatus']);
+Route::post('/dispute/respond', [DisputeController::class, 'respond']);
+Route::get('/student/disputes/{student_id}', [DisputeController::class, 'studentDisputes']);
+Route::get('/dispute/logs/{dispute_id}', [DisputeController::class, 'disputeLogs']);
+Route::get('/admin/dashboard', [DisputeController::class, 'adminDashboard']);
+Route::get('/admin/disputes', [DisputeController::class, 'allDisputes']);
+Route::get('/admin/disputes/escalated', [DisputeController::class, 'escalatedDisputes']);
+Route::get('/admin/reports/units', [DisputeController::class, 'disputesPerUnit']);
+Route::get('/admin/reports/lecturers', [DisputeController::class, 'disputesPerLecturer']);
+Route::get('/admin/reports/monthly', [DisputeController::class, 'monthlyDisputes']);
+Route::get('/admin/reports/resolution-time', [DisputeController::class, 'resolutionTime']);
 
 
 Route::get('/test-model', function () {

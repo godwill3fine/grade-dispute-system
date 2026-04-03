@@ -12,10 +12,18 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
+            '/identify',
             'identify',
+            '/set-password',
             'set-password',
+            '/login',
             'login',
+            '/disputes',
             'disputes',
+            '/dispute/update-status',
+            'dispute/update-status',
+            '/dispute/respond',
+            'dispute/respond',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
