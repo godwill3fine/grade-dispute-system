@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\Student;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -36,6 +37,9 @@ Route::get('/admin/reports/units', [DisputeController::class, 'disputesPerUnit']
 Route::get('/admin/reports/lecturers', [DisputeController::class, 'disputesPerLecturer']);
 Route::get('/admin/reports/monthly', [DisputeController::class, 'monthlyDisputes']);
 Route::get('/admin/reports/resolution-time', [DisputeController::class, 'resolutionTime']);
+Route::get('/dispute/{id}/timeline', [DisputeController::class, 'timeline']);
+Route::get('/notifications/{userId}', [NotificationController::class, 'userNotifications']);
+Route::post('/notifications/read/{id}', [NotificationController::class, 'markAsRead']);
 
 
 Route::get('/test-model', function () {

@@ -6,6 +6,48 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+// Ensure CLI PHP has a CA bundle so HTTPS requests in artisan commands can verify TLS certs.
+if (PHP_SAPI === 'cli') {
+    $certCandidates = array_filter([
+        getenv('SSL_CERT_FILE') ?: null,
+        getenv('CURL_CA_BUNDLE') ?: null,
+        'C:\\php\\extras\\ssl\\cacert.pem',
+        'C:\\php\\cacert.pem',
+        'C:\\xampp\\php\\extras\\ssl\\cacert.pem',
+        'C:\\Program Files\\Git\\usr\\ssl\\certs\\ca-bundle.crt',
+        '/etc/ssl/certs/ca-certificates.crt',
+        '/etc/pki/tls/certs/ca-bundle.crt',
+        '/usr/local/etc/openssl/cert.pem',
+    ]);
+
+    foreach ($certCandidates as $certPath) {
+        if (!is_readable($certPath)) {
+            continue;
+        }
+
+        // curl.cainfo and openssl.cafile are often PHP_INI_SYSTEM, so also set env vars for libcurl/OpenSSL.
+        if (!getenv('CURL_CA_BUNDLE')) {
+            putenv('CURL_CA_BUNDLE='.$certPath);
+            $_SERVER['CURL_CA_BUNDLE'] = $certPath;
+            $_ENV['CURL_CA_BUNDLE'] = $certPath;
+        }
+        if (!getenv('SSL_CERT_FILE')) {
+            putenv('SSL_CERT_FILE='.$certPath);
+            $_SERVER['SSL_CERT_FILE'] = $certPath;
+            $_ENV['SSL_CERT_FILE'] = $certPath;
+        }
+
+        if (!ini_get('curl.cainfo')) {
+            ini_set('curl.cainfo', $certPath);
+        }
+        if (!ini_get('openssl.cafile')) {
+            ini_set('openssl.cafile', $certPath);
+        }
+
+        break;
+    }
+}
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 

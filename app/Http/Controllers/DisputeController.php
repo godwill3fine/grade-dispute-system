@@ -9,6 +9,7 @@ use App\Models\Dispute;
 use App\Models\Staff;
 use App\Models\DisputeLog;
 use Illuminate\Support\Facades\DB;
+use App\Services\NotificationService;
 
 
 class DisputeController extends Controller
@@ -24,7 +25,7 @@ class DisputeController extends Controller
         return response()->json($units);
     }
 
-    public function store(Request $request)
+        public function store(Request $request)
     {
         $request->validate([
             'student_id' => 'required',
@@ -54,8 +55,8 @@ class DisputeController extends Controller
             $assigned_role = 'lecturer';
         }
 
-    // GENERAL DISPUTE
-    else {
+        // GENERAL DISPUTE
+        else {
 
             $request->validate([
                 'assigned_role' => 'required'
@@ -68,6 +69,7 @@ class DisputeController extends Controller
             }
 
             $assigned_to = $staff->staff_id;
+            $assigned_role = $staff->role;
         }
 
         // Create dispute
@@ -76,10 +78,19 @@ class DisputeController extends Controller
             'type' => $request->type,
             'unit_code' => $request->unit_code ?? null,
             'assigned_to' => $assigned_to,
-            'assigned_role' => $assigned_role ?? $request->assigned_role,
+            'assigned_role' => $assigned_role,
             'title' => $request->title,
-            'description' => $request->description
+            'description' => $request->description,
+            'status' => 'submitted'
         ]);
+
+        // 🔷 Send notification to assigned lecturer/staff
+        NotificationService::notify(
+            $assigned_to,
+            'New Dispute Assigned',
+            'A new dispute has been assigned to you. Ticket: ' . $dispute->ticket_number,
+            '/tickets/' . $dispute->id
+        );
 
         return response()->json([
             'message' => 'Dispute submitted successfully',
@@ -96,23 +107,32 @@ class DisputeController extends Controller
     }
     public function updateStatus(Request $request)
     {
-        $request->validate([
-            'dispute_id' => 'required',
-            'status' => 'required'
-        ]);
-
         $dispute = Dispute::find($request->dispute_id);
 
-        if (!$dispute) {
-            return response()->json(['error' => 'Dispute not found'], 404);
-        }
+        $oldStatus = $dispute->status;
 
         $dispute->status = $request->status;
         $dispute->save();
 
+        DisputeLog::create([
+            'dispute_id' => $dispute->id,
+            'action' => 'Status Updated',
+            'old_status' => $oldStatus,
+            'new_status' => $request->status,
+            'comment' => $request->comment,
+            'performed_by' => $request->performed_by
+        ]);
+
+        // Notify student
+        NotificationService::notify(
+            $dispute->student_id,
+            'Dispute Status Updated',
+            'Your dispute ' . $dispute->ticket_number . ' status changed to ' . $request->status,
+            '/student/tickets/' . $dispute->id
+        );
+
         return response()->json([
-            'message' => 'Status updated',
-            'data' => $dispute
+            'message' => 'Status updated successfully'
         ]);
     }
 
@@ -121,18 +141,35 @@ class DisputeController extends Controller
         $request->validate([
             'dispute_id' => 'required',
             'performed_by' => 'required',
-            'action' => 'required'
+            'comment' => 'required'
         ]);
-
-        $log = DisputeLog::create([
-            'dispute_id' => $request->dispute_id,
-            'performed_by' => $request->performed_by,
-            'action' => $request->action
+    
+        $dispute = Dispute::find($request->dispute_id);
+    
+        if (!$dispute) {
+            return response()->json(['error' => 'Dispute not found'], 404);
+        }
+    
+        // Add log entry (timeline)
+        DisputeLog::create([
+            'dispute_id' => $dispute->id,
+            'action' => 'Response Added',
+            'old_status' => $dispute->status,
+            'new_status' => $dispute->status,
+            'comment' => $request->comment,
+            'performed_by' => $request->performed_by
         ]);
-
+    
+        // Notify student
+        NotificationService::notify(
+            $dispute->student_id,
+            'New Response on Your Dispute',
+            'There is a new response on dispute ' . $dispute->ticket_number,
+            '/student/tickets/' . $dispute->id
+        );
+    
         return response()->json([
-            'message' => 'Response added',
-            'data' => $log
+            'message' => 'Response added successfully'
         ]);
     }
     public function studentDisputes($student_id)
@@ -215,6 +252,13 @@ class DisputeController extends Controller
 
         return response()->json($data);
     }
-    
+    public function timeline($id)
+    {
+        $logs = DisputeLog::where('dispute_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
 
+        return response()->json($logs);
+    }
+    
 }
