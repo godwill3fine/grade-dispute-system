@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Student;
 use App\Models\Lecturer;
 use App\Models\Staff;
@@ -55,6 +56,10 @@ class AuthController extends Controller
     //Identify user
     public function identify(Request $request)
     {
+        $request->validate([
+            'identifier' => 'required|string'
+        ]);
+
         $identifier = $request->identifier;
 
         // Check student
@@ -132,10 +137,15 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
+
+        auth()->login($user);
+        $request->session()->regenerate();
+        $user->forceFill(['last_login' => now()])->save();
     
         return response()->json([
             'message' => 'Login successful',
-            'role' => $user->role
+            'role' => $user->role,
+            'identifier' => $user->identifier,
         ]);
     }
 }

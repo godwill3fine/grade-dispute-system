@@ -11,7 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->validateCsrfTokens(except: [
+        $middleware->preventRequestForgery(except: [
             '/identify',
             'identify',
             '/set-password',
@@ -20,11 +20,23 @@ return Application::configure(basePath: dirname(__DIR__))
             'login',
             '/disputes',
             'disputes',
+            '/dispute/store',
+            'dispute/store',
+            '/dispute/status',
+            'dispute/status',
             '/dispute/update-status',
             'dispute/update-status',
             '/dispute/respond',
             'dispute/respond',
+            '/notifications/read/*',
+            'notifications/read/*',
+            '/admin/settings/update',
+            'admin/settings/update',
         ]);
+        $middleware->alias([
+            'role' => \App\Http\Middleware\RoleMiddleware::class,
+        ]);
+        
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

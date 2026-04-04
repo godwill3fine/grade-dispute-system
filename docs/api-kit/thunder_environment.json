@@ -1,0 +1,44 @@
+{
+  "client": "Thunder Client",
+  "environmentName": "Grade Dispute Local",
+  "dateExported": "2026-04-04T18:20:00.000Z",
+  "version": "1.0",
+  "variables": [
+    {
+      "name": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "name": "student_identifier",
+      "value": "S001"
+    },
+    {
+      "name": "lecturer_identifier",
+      "value": "L001"
+    },
+    {
+      "name": "admin_identifier",
+      "value": "ADMIN001"
+    },
+    {
+      "name": "student_password",
+      "value": "password123"
+    },
+    {
+      "name": "lecturer_password",
+      "value": "password123"
+    },
+    {
+      "name": "admin_password",
+      "value": "password"
+    },
+    {
+      "name": "dispute_id",
+      "value": "1"
+    },
+    {
+      "name": "notification_id",
+      "value": "1"
+    }
+  ]
+}

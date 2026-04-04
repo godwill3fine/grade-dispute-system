@@ -1,0 +1,479 @@
+{
+  "client": "Thunder Client",
+  "collectionName": "Grade Dispute API v1",
+  "dateExported": "2026-04-04T18:20:00.000Z",
+  "version": "1.1",
+  "folders": [
+    {
+      "_id": "fld-auth",
+      "name": "01 Auth",
+      "containerId": "",
+      "created": "2026-04-04T18:20:00.000Z",
+      "sortNum": 10000
+    },
+    {
+      "_id": "fld-core",
+      "name": "02 Disputes Core",
+      "containerId": "",
+      "created": "2026-04-04T18:20:00.000Z",
+      "sortNum": 20000
+    },
+    {
+      "_id": "fld-notify",
+      "name": "03 Notifications",
+      "containerId": "",
+      "created": "2026-04-04T18:20:00.000Z",
+      "sortNum": 30000
+    },
+    {
+      "_id": "fld-admin",
+      "name": "04 Admin",
+      "containerId": "",
+      "created": "2026-04-04T18:20:00.000Z",
+      "sortNum": 40000
+    }
+  ],
+  "requests": [
+    {
+      "_id": "req-identify",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-auth",
+      "name": "Identify User",
+      "url": "{{base_url}}/identify",
+      "method": "POST",
+      "sortNum": 10001,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"identifier\":\"{{student_identifier}}\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-setpass-student",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-auth",
+      "name": "Set Password Student",
+      "url": "{{base_url}}/set-password",
+      "method": "POST",
+      "sortNum": 10002,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"identifier\":\"{{student_identifier}}\",\"role\":\"student\",\"password\":\"{{student_password}}\",\"password_confirmation\":\"{{student_password}}\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-setpass-lecturer",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-auth",
+      "name": "Set Password Lecturer",
+      "url": "{{base_url}}/set-password",
+      "method": "POST",
+      "sortNum": 10003,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"identifier\":\"{{lecturer_identifier}}\",\"role\":\"lecturer\",\"password\":\"{{lecturer_password}}\",\"password_confirmation\":\"{{lecturer_password}}\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-login-student",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-auth",
+      "name": "Login Student",
+      "url": "{{base_url}}/login",
+      "method": "POST",
+      "sortNum": 10004,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"identifier\":\"{{student_identifier}}\",\"password\":\"{{student_password}}\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-login-lecturer",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-auth",
+      "name": "Login Lecturer",
+      "url": "{{base_url}}/login",
+      "method": "POST",
+      "sortNum": 10005,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"identifier\":\"{{lecturer_identifier}}\",\"password\":\"{{lecturer_password}}\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-login-admin",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-auth",
+      "name": "Login Admin",
+      "url": "{{base_url}}/login",
+      "method": "POST",
+      "sortNum": 10006,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"identifier\":\"{{admin_identifier}}\",\"password\":\"{{admin_password}}\"}",
+        "form": []
+      },
+      "tests": []
+    },
+
+    {
+      "_id": "req-search-units",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Search Units",
+      "url": "{{base_url}}/units/search?q=CSC",
+      "method": "GET",
+      "sortNum": 20001,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-create-dispute",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Create Unit Dispute",
+      "url": "{{base_url}}/disputes",
+      "method": "POST",
+      "sortNum": 20002,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Identifier", "value": "{{student_identifier}}" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"student_id\":\"{{student_identifier}}\",\"type\":\"unit\",\"unit_code\":\"CSC101\",\"course\":\"BSc CS\",\"title\":\"Grade mismatch\",\"description\":\"CAT score missing\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-student-disputes",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Student Disputes",
+      "url": "{{base_url}}/student/disputes/{{student_identifier}}",
+      "method": "GET",
+      "sortNum": 20003,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{student_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-lecturer-disputes",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Lecturer Disputes",
+      "url": "{{base_url}}/lecturer/disputes/{{lecturer_identifier}}",
+      "method": "GET",
+      "sortNum": 20004,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{lecturer_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-respond",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Lecturer Respond",
+      "url": "{{base_url}}/dispute/respond",
+      "method": "POST",
+      "sortNum": 20005,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Identifier", "value": "{{lecturer_identifier}}" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"dispute_id\":{{dispute_id}},\"comment\":\"Received. Reviewing scripts.\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-status-update",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Lecturer Update Status",
+      "url": "{{base_url}}/dispute/status",
+      "method": "POST",
+      "sortNum": 20006,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Identifier", "value": "{{lecturer_identifier}}" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"dispute_id\":{{dispute_id}},\"status\":\"under_review\",\"comment\":\"Moved to under_review\"}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-timeline",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Dispute Timeline",
+      "url": "{{base_url}}/dispute/{{dispute_id}}/timeline",
+      "method": "GET",
+      "sortNum": 20007,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{student_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-logs",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-core",
+      "name": "Dispute Logs",
+      "url": "{{base_url}}/dispute/logs/{{dispute_id}}",
+      "method": "GET",
+      "sortNum": 20008,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{student_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+
+    {
+      "_id": "req-notifications-list",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-notify",
+      "name": "List Student Notifications",
+      "url": "{{base_url}}/notifications/{{student_identifier}}",
+      "method": "GET",
+      "sortNum": 30001,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{student_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-notifications-read",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-notify",
+      "name": "Mark Notification Read",
+      "url": "{{base_url}}/notifications/read/{{notification_id}}",
+      "method": "POST",
+      "sortNum": 30002,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{student_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+
+    {
+      "_id": "req-admin-dashboard",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Dashboard",
+      "url": "{{base_url}}/admin/dashboard",
+      "method": "GET",
+      "sortNum": 40001,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-admin-disputes-filter",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Disputes Filter",
+      "url": "{{base_url}}/admin/disputes/filter?status=under_review",
+      "method": "GET",
+      "sortNum": 40002,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-admin-reports-units",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Report Units",
+      "url": "{{base_url}}/admin/reports/units",
+      "method": "GET",
+      "sortNum": 40003,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-admin-chart-status",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Chart By Status",
+      "url": "{{base_url}}/admin/charts/disputes-by-status",
+      "method": "GET",
+      "sortNum": 40004,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-admin-activity",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Activity",
+      "url": "{{base_url}}/admin/activity",
+      "method": "GET",
+      "sortNum": 40005,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    },
+    {
+      "_id": "req-admin-settings-update",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Settings Update",
+      "url": "{{base_url}}/admin/settings/update",
+      "method": "POST",
+      "sortNum": 40006,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": {
+        "type": "json",
+        "raw": "{\"settings\":{\"escalation_days_hod\":\"3\",\"escalation_days_admin\":\"6\"}}",
+        "form": []
+      },
+      "tests": []
+    },
+    {
+      "_id": "req-admin-settings-list",
+      "colId": "col-grade-dispute-v1",
+      "containerId": "fld-admin",
+      "name": "Admin Settings List",
+      "url": "{{base_url}}/admin/settings",
+      "method": "GET",
+      "sortNum": 40007,
+      "created": "2026-04-04T18:20:00.000Z",
+      "modified": "2026-04-04T18:20:00.000Z",
+      "headers": [
+        { "name": "X-User-Identifier", "value": "{{admin_identifier}}" }
+      ],
+      "params": [],
+      "body": { "type": "none", "raw": "", "form": [] },
+      "tests": []
+    }
+  ],
+  "settings": {
+    "auth": {
+      "type": "none"
+    }
+  }
+}

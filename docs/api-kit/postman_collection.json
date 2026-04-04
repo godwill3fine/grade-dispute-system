@@ -1,0 +1,352 @@
+{
+  "info": {
+    "name": "Grade Dispute API v1",
+    "_postman_id": "c1d81c0a-0e6f-4a4a-9dce-8ef0a8cf2026",
+    "description": "Postman collection for Grade Dispute System backend validation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "Identify User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{student_identifier}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/identify"
+          }
+        },
+        {
+          "name": "Set Password Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{student_identifier}}\",\n  \"role\": \"student\",\n  \"password\": \"{{student_password}}\",\n  \"password_confirmation\": \"{{student_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/set-password"
+          }
+        },
+        {
+          "name": "Set Password Lecturer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{lecturer_identifier}}\",\n  \"role\": \"lecturer\",\n  \"password\": \"{{lecturer_password}}\",\n  \"password_confirmation\": \"{{lecturer_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/set-password"
+          }
+        },
+        {
+          "name": "Login Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{student_identifier}}\",\n  \"password\": \"{{student_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/login"
+          }
+        },
+        {
+          "name": "Login Lecturer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{lecturer_identifier}}\",\n  \"password\": \"{{lecturer_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/login"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{admin_identifier}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Disputes Core",
+      "item": [
+        {
+          "name": "Search Units",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/units/search?q=CSC"
+          }
+        },
+        {
+          "name": "Create Unit Dispute",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Identifier", "value": "{{student_identifier}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student_id\": \"{{student_identifier}}\",\n  \"type\": \"unit\",\n  \"unit_code\": \"CSC101\",\n  \"course\": \"BSc CS\",\n  \"title\": \"Grade mismatch\",\n  \"description\": \"CAT score missing\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/disputes"
+          }
+        },
+        {
+          "name": "Student Disputes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{student_identifier}}" }
+            ],
+            "url": "{{base_url}}/student/disputes/{{student_identifier}}"
+          }
+        },
+        {
+          "name": "Lecturer Disputes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{lecturer_identifier}}" }
+            ],
+            "url": "{{base_url}}/lecturer/disputes/{{lecturer_identifier}}"
+          }
+        },
+        {
+          "name": "Lecturer Respond",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Identifier", "value": "{{lecturer_identifier}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dispute_id\": {{dispute_id}},\n  \"comment\": \"Received. Reviewing scripts.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/dispute/respond"
+          }
+        },
+        {
+          "name": "Lecturer Update Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Identifier", "value": "{{lecturer_identifier}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dispute_id\": {{dispute_id}},\n  \"status\": \"under_review\",\n  \"comment\": \"Moved to under_review\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/dispute/status"
+          }
+        },
+        {
+          "name": "Dispute Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{student_identifier}}" }
+            ],
+            "url": "{{base_url}}/dispute/{{dispute_id}}/timeline"
+          }
+        },
+        {
+          "name": "Dispute Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{student_identifier}}" }
+            ],
+            "url": "{{base_url}}/dispute/logs/{{dispute_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Notifications",
+      "item": [
+        {
+          "name": "List Student Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{student_identifier}}" }
+            ],
+            "url": "{{base_url}}/notifications/{{student_identifier}}"
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{student_identifier}}" }
+            ],
+            "url": "{{base_url}}/notifications/read/{{notification_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Admin",
+      "item": [
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/dashboard"
+          }
+        },
+        {
+          "name": "Admin Disputes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/disputes"
+          }
+        },
+        {
+          "name": "Admin Filter Under Review",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/disputes/filter?status=under_review"
+          }
+        },
+        {
+          "name": "Admin Reports Units",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/reports/units"
+          }
+        },
+        {
+          "name": "Admin Reports Lecturers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/reports/lecturers"
+          }
+        },
+        {
+          "name": "Admin Reports Monthly",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/reports/monthly"
+          }
+        },
+        {
+          "name": "Admin Reports Resolution Time",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/reports/resolution-time"
+          }
+        },
+        {
+          "name": "Admin Chart Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/charts/disputes-by-status"
+          }
+        },
+        {
+          "name": "Admin Activity",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/activity"
+          }
+        },
+        {
+          "name": "Admin Settings Update",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"escalation_days_hod\": \"3\",\n    \"escalation_days_admin\": \"6\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/admin/settings/update"
+          }
+        },
+        {
+          "name": "Admin Settings List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Identifier", "value": "{{admin_identifier}}" }
+            ],
+            "url": "{{base_url}}/admin/settings"
+          }
+        }
+      ]
+    }
+  ]
+}

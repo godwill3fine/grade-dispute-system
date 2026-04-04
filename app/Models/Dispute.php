@@ -64,9 +64,15 @@ class Dispute extends Model
         parent::boot();
 
         static::creating(function ($dispute) {
-            $last = Dispute::orderBy('created_at', 'desc')->first();
+            if (! empty($dispute->ticket_number)) {
+                return;
+            }
 
-            if ($last) {
+            $last = Dispute::whereNotNull('ticket_number')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if ($last && is_string($last->ticket_number) && str_starts_with($last->ticket_number, 'DSP-')) {
                 $lastNumber = (int) substr($last->ticket_number, 4);
                 $newNumber = $lastNumber + 1;
             } else {
@@ -80,7 +86,7 @@ class Dispute extends Model
                 'dispute_id' => $dispute->id,
                 'action' => 'Dispute Submitted',
                 'old_status' => null,
-                'new_status' => 'submitted',
+                'new_status' => $dispute->status,
                 'comment' => 'Dispute created by student',
                 'performed_by' => $dispute->student_id
             ]);
