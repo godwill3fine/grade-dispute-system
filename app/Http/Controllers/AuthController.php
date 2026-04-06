@@ -7,6 +7,7 @@ use App\Models\Lecturer;
 use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
 
@@ -146,6 +147,42 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'role' => $user->role,
             'identifier' => $user->identifier,
+        ]);
+    }
+
+    // Forgot Password / Reset Password
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required|string|exists:users,identifier',
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $user = User::where('identifier', $request->identifier)->first();
+        if (! $user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json([
+            'message' => 'Password reset successful',
+        ]);
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('portal.auth');
+        }
+
+        return response()->json([
+            'message' => 'Logged out successfully',
         ]);
     }
 }

@@ -1,0 +1,34 @@
+.form-label {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+}
+
+.form-control,
+.form-select,
+textarea {
+    border-color: var(--color-border-input);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+}
+
+.btn-primary {
+    background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+    border: 0;
+    border-radius: var(--radius-md);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background: linear-gradient(90deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+}
+
+.btn-outline-primary {
+    border-color: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+.btn-outline-primary:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}

@@ -1,0 +1,61 @@
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+    padding: 4px 10px;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: capitalize;
+    letter-spacing: 0.4px;
+    color: #fff;
+}
+
+.status-pending {
+    background: var(--status-pending);
+}
+
+.status-under-review {
+    background: var(--status-review);
+}
+
+.status-resolved {
+    background: var(--status-resolved);
+}
+
+.status-escalated {
+    background: var(--status-escalated);
+}
+
+.status-submitted {
+    background: var(--status-submitted);
+}
+
+.status-closed {
+    background: var(--status-closed);
+}
+
+.status-rejected {
+    background: var(--status-rejected);
+}
+
+.priority-pill {
+    border-radius: var(--radius-pill);
+    padding: 2px 10px;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: #fff;
+    text-transform: capitalize;
+}
+
+.priority-low {
+    background: #475569;
+}
+
+.priority-medium {
+    background: #1d4ed8;
+}
+
+.priority-high {
+    background: #b91c1c;
+}

@@ -3,18 +3,45 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\FrontendController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SystemSettingController;
 use App\Models\Student;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', [FrontendController::class, 'landing'])->name('portal.landing');
+Route::get('/portal/auth', [FrontendController::class, 'authPage'])->name('portal.auth');
+Route::get('/portal/signup', [FrontendController::class, 'signupPage'])->name('portal.signup');
+Route::get('/portal/signup/password', [FrontendController::class, 'signupPasswordPage'])->name('portal.signup.password');
+Route::get('/portal/password/forgot', [FrontendController::class, 'forgotPasswordPage'])->name('portal.password.forgot');
+Route::get('/login', fn () => redirect()->route('portal.auth'))->name('login');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('portal.logout');
+
+Route::middleware('auth')->prefix('portal')->group(function () {
+    Route::get('/app', [FrontendController::class, 'appHome'])->name('portal.app');
+
+    Route::get('/student/dashboard', [FrontendController::class, 'studentDashboard'])->name('portal.student.dashboard');
+    Route::get('/student/submit-dispute', [FrontendController::class, 'studentSubmitDispute'])->name('portal.student.submit');
+    Route::get('/student/tickets', [FrontendController::class, 'studentTickets'])->name('portal.student.tickets');
+    Route::get('/student/notifications', [FrontendController::class, 'studentNotifications'])->name('portal.student.notifications');
+    Route::get('/student/disputes', [FrontendController::class, 'studentDisputes'])->name('portal.student.disputes');
+    Route::get('/student/disputes/{id}', [FrontendController::class, 'studentDisputeDetail'])->name('portal.student.dispute.detail');
+
+    Route::get('/lecturer/dashboard', [FrontendController::class, 'lecturerDashboard'])->name('portal.lecturer.dashboard');
+    Route::get('/lecturer/disputes', [FrontendController::class, 'lecturerDisputes'])->name('portal.lecturer.disputes');
+    Route::get('/lecturer/disputes/{id}', [FrontendController::class, 'lecturerDisputeDetail'])->name('portal.lecturer.dispute.detail');
+
+    Route::get('/admin/dashboard', [FrontendController::class, 'adminDashboard'])->name('portal.admin.dashboard');
+    Route::get('/admin/disputes', [FrontendController::class, 'adminDisputes'])->name('portal.admin.disputes');
+    Route::get('/admin/reports', [FrontendController::class, 'adminReports'])->name('portal.admin.reports');
+    Route::get('/admin/settings', [FrontendController::class, 'adminSettings'])->name('portal.admin.settings');
+    Route::get('/admin/activity', [FrontendController::class, 'adminActivity'])->name('portal.admin.activity');
 });
 
 Route::post('/identify', [AuthController::class, 'identify']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 
 Route::get('/units/search', [DisputeController::class, 'searchUnits']);
 

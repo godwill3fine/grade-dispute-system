@@ -1,0 +1,29 @@
+.table {
+    --bs-table-striped-bg: #f8faff;
+    --bs-table-hover-bg: var(--color-bg-hover);
+}
+
+.table thead th {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border-divider);
+}
+
+.table td {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-light);
+}
+
+.table-hover tbody tr {
+    cursor: default;
+}
+
+.card-header {
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+#globalAlert {
+    border-radius: var(--radius-md);
+}

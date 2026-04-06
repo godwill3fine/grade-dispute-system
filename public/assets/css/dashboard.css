@@ -1,0 +1,249 @@
+.gd-stat-card h3 {
+    font-size: clamp(1.4rem, 2vw, 1.8rem);
+    font-weight: var(--font-weight-bold);
+}
+
+.card.shadow-sm {
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.card.shadow-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md) !important;
+}
+
+canvas {
+    width: 100% !important;
+}
+
+.badge.text-bg-secondary {
+    background: #dae2f2 !important;
+    color: #1a325e !important;
+}
+
+.gd-student-page {
+    max-width: 1280px;
+}
+
+.gd-student-header-card {
+    background: #ffffff;
+    border: 1px solid #a8a3a3;
+    padding: 24px;
+}
+
+.gd-kicker {
+    color: #70767d;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.gd-wire-card {
+    background: #ffffff;
+    border: 1px solid #121212;
+    min-height: 116px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.gd-wire-card h3 {
+    font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+    margin: 0;
+    line-height: 1;
+}
+
+.gd-inline-total {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #a8a3a3;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+}
+
+.gd-wire-block {
+    background: #ffffff;
+    border: 1px solid #a8a3a3;
+    padding: 0;
+}
+
+.gd-wire-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px;
+    border-bottom: 1px solid #a8a3a3;
+    background: #f8f9f9;
+}
+
+.gd-wire-toolbar .form-select {
+    width: 220px;
+    border-radius: 0;
+    border-color: #8d8d8d;
+}
+
+.gd-search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 280px;
+    flex: 1 1 380px;
+    border: 1px solid #8d8d8d;
+    padding: 0 10px;
+    background: #fff;
+}
+
+.gd-search-box i {
+    color: #7d7d7d;
+}
+
+.gd-search-box .form-control {
+    padding-left: 0;
+    box-shadow: none;
+    border-radius: 0;
+    min-height: 42px;
+}
+
+.gd-wire-table {
+    margin-bottom: 0;
+}
+
+.gd-wire-table thead th {
+    background: #bfc9d1;
+    color: #3d3b3b;
+    font-size: 0.77rem;
+    border-bottom-color: #9ca4ac;
+}
+
+.gd-wire-table tbody td {
+    background: #fff;
+    vertical-align: middle;
+}
+
+.gd-wire-table tbody tr:nth-child(even) td {
+    background: #fcfcfc;
+}
+
+.gd-wire-table .btn {
+    min-width: 80px;
+}
+
+.gd-student-form {
+    padding: 28px;
+}
+
+.gd-student-form .form-control,
+.gd-student-form .form-select {
+    border-radius: 0;
+    border-color: #8d8d8d;
+    background: #f0f0f0;
+}
+
+.gd-student-form .form-control:focus,
+.gd-student-form .form-select:focus {
+    border-color: #3d3b3b;
+    box-shadow: none;
+}
+
+.gd-student-notification-feed {
+    display: grid;
+    gap: 0;
+}
+
+.gd-notification-row {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid #d0d0d0;
+    background: #fff;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+}
+
+.gd-notification-row:last-child {
+    border-bottom: 0;
+}
+
+.gd-notification-row.unread {
+    background: #f2f6ff;
+}
+
+.gd-notification-row:hover {
+    background: #f8f8f8;
+}
+
+.gd-notification-icon {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #bcbcbc;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a4747;
+}
+
+.gd-notification-content {
+    display: grid;
+    gap: 4px;
+}
+
+.gd-notification-content strong {
+    color: #2e2c2c;
+    font-size: 0.96rem;
+}
+
+.gd-notification-content span {
+    color: #646464;
+    font-size: 0.9rem;
+}
+
+.gd-notification-meta {
+    color: #7c7c7c;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+    .gd-student-header-card {
+        padding: 18px;
+    }
+
+    .gd-wire-card {
+        min-height: 96px;
+        padding: 16px;
+    }
+
+    .gd-student-form {
+        padding: 18px;
+    }
+
+    .gd-wire-toolbar {
+        padding: 12px;
+    }
+
+    .gd-wire-toolbar .form-select,
+    .gd-search-box {
+        width: 100%;
+        min-width: 0;
+        flex-basis: 100%;
+    }
+
+    .gd-notification-row {
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .gd-notification-meta {
+        grid-column: 2;
+    }
+}

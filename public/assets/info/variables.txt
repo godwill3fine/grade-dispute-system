@@ -1,0 +1,101 @@
+| Variable              | Used For                       |
+| --------------------- | ------------------------------ |
+| --color-primary       | Primary buttons, active states |
+| --color-primary-dark  | Button hover, active button    |
+| --color-primary-light | Highlight backgrounds          |
+| --color-accent        | Active sidebar item, icons     |
+| --color-link          | Links and clickable text       |
+
+| Variable            | Used For                    |
+| ------------------- | --------------------------- |
+| --color-bg-main     | Entire page background      |
+| --color-bg-content  | Main content area           |
+| --color-bg-card     | Cards, panels               |
+| --color-bg-sidebar  | Sidebar background          |
+| --color-bg-navbar   | Navbar background           |
+| --color-bg-hover    | Table row hover, menu hover |
+| --color-bg-overlay  | Modal overlay               |
+| --color-bg-disabled | Disabled buttons/inputs     |
+
+| Variable               | Used For             |
+| ---------------------- | -------------------- |
+| --color-text-primary   | Main body text       |
+| --color-text-secondary | Secondary text       |
+| --color-text-muted     | Labels, hints        |
+| --color-text-heading   | Page titles          |
+| --color-text-white     | Text on dark buttons |
+| --color-text-link      | Links                |
+
+| Variable               | Used For           |
+| ---------------------- | ------------------ |
+| --color-border-light   | Cards, tables      |
+| --color-border-divider | Section dividers   |
+| --color-border-input   | Input fields       |
+| --color-border-focus   | Active input focus |
+| --color-border-strong  | Important borders  |
+
+| Variable           | Used For               |
+| ------------------ | ---------------------- |
+| --status-submitted | Submitted ticket badge |
+| --status-pending   | Pending status         |
+| --status-review    | Under review           |
+| --status-resolved  | Resolved tickets       |
+| --status-rejected  | Rejected tickets       |
+| --status-escalated | Escalated disputes     |
+| --status-closed    | Closed tickets         |
+| --status-info      | Info alerts            |
+| --status-success   | Success alerts         |
+| --status-warning   | Warning alerts         |
+| --status-danger    | Error alerts           |
+
+| Variable               | Used For           |
+| ---------------------- | ------------------ |
+| --font-family-base     | Body font          |
+| --font-family-heading  | Headings           |
+| --font-size-xs         | Small text         |
+| --font-size-sm         | Labels             |
+| --font-size-md         | Body text          |
+| --font-size-lg         | Section titles     |
+| --font-size-xl         | Page titles        |
+| --font-size-xxl        | Main titles        |
+| --font-weight-light    | Light text         |
+| --font-weight-regular  | Normal text        |
+| --font-weight-medium   | Medium emphasis    |
+| --font-weight-semibold | Headings           |
+| --font-weight-bold     | Important text     |
+| --line-height-base     | Body text spacing  |
+| --line-height-heading  | Heading spacing    |
+| --letter-spacing       | Typography spacing |
+
+| Variable      | Used For |
+| ------------- | -------- |
+| --radius-sm   | Inputs   |
+| --radius-md   | Buttons  |
+| --radius-lg   | Cards    |
+| --radius-xl   | Modals   |
+| --radius-pill | Badges   |
+
+| Variable    | Used For       |
+| ----------- | -------------- |
+| --shadow-sm | Inputs         |
+| --shadow-md | Cards          |
+| --shadow-lg | Dropdown menus |
+| --shadow-xl | Modals         |
+
+| Variable            | Used For              |
+| ------------------- | --------------------- |
+| --sidebar-width     | Sidebar width         |
+| --navbar-height     | Navbar height         |
+| --content-padding   | Content area padding  |
+| --container-width   | Container max width   |
+| --content-max-width | Large screens         |
+| --card-padding      | Card internal padding |
+| --transition-speed  | Animations            |
+
+| Variable     | Used For       |
+| ------------ | -------------- |
+| --z-sidebar  | Sidebar layer  |
+| --z-navbar   | Navbar layer   |
+| --z-dropdown | Dropdown menus |
+| --z-modal    | Modals         |
+| --z-toast    | Notifications  |
