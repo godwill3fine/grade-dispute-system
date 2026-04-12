@@ -14,6 +14,9 @@ Route::get('/portal/auth', [FrontendController::class, 'authPage'])->name('porta
 Route::get('/portal/signup', [FrontendController::class, 'signupPage'])->name('portal.signup');
 Route::get('/portal/signup/password', [FrontendController::class, 'signupPasswordPage'])->name('portal.signup.password');
 Route::get('/portal/password/forgot', [FrontendController::class, 'forgotPasswordPage'])->name('portal.password.forgot');
+Route::get('/portal/password/forgot/email', [FrontendController::class, 'forgotPasswordEmailPage'])->name('portal.password.forgot.email');
+Route::get('/portal/password/forgot/verify', [FrontendController::class, 'forgotPasswordVerifyPage'])->name('portal.password.forgot.verify');
+Route::get('/portal/password/forgot/reset', [FrontendController::class, 'forgotPasswordResetPage'])->name('portal.password.forgot.reset');
 Route::get('/login', fn () => redirect()->route('portal.auth'))->name('login');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('portal.logout');
 
@@ -29,10 +32,13 @@ Route::middleware('auth')->prefix('portal')->group(function () {
 
     Route::get('/lecturer/dashboard', [FrontendController::class, 'lecturerDashboard'])->name('portal.lecturer.dashboard');
     Route::get('/lecturer/disputes', [FrontendController::class, 'lecturerDisputes'])->name('portal.lecturer.disputes');
+    Route::get('/lecturer/history', [FrontendController::class, 'lecturerHistory'])->name('portal.lecturer.history');
     Route::get('/lecturer/disputes/{id}', [FrontendController::class, 'lecturerDisputeDetail'])->name('portal.lecturer.dispute.detail');
 
     Route::get('/admin/dashboard', [FrontendController::class, 'adminDashboard'])->name('portal.admin.dashboard');
     Route::get('/admin/disputes', [FrontendController::class, 'adminDisputes'])->name('portal.admin.disputes');
+    Route::get('/admin/users', [FrontendController::class, 'adminUsers'])->name('portal.admin.users');
+    Route::get('/admin/escalations', [FrontendController::class, 'adminEscalations'])->name('portal.admin.escalations');
     Route::get('/admin/reports', [FrontendController::class, 'adminReports'])->name('portal.admin.reports');
     Route::get('/admin/settings', [FrontendController::class, 'adminSettings'])->name('portal.admin.settings');
     Route::get('/admin/activity', [FrontendController::class, 'adminActivity'])->name('portal.admin.activity');
@@ -41,7 +47,11 @@ Route::middleware('auth')->prefix('portal')->group(function () {
 Route::post('/identify', [AuthController::class, 'identify']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPasswordReset']);
+Route::post('/forgot-password/identify', [AuthController::class, 'forgotPasswordIdentify']);
+Route::post('/forgot-password/email', [AuthController::class, 'forgotPasswordSendCode']);
+Route::post('/forgot-password/verify', [AuthController::class, 'forgotPasswordVerifyCode']);
+Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordReset']);
 
 Route::get('/units/search', [DisputeController::class, 'searchUnits']);
 
@@ -72,6 +82,7 @@ Route::middleware(['role:student,lecturer,admin'])->group(function () {
 Route::middleware(['role:admin'])->group(function () {
     Route::get('/admin/dashboard', [DisputeController::class, 'adminDashboard']);
     Route::get('/admin/disputes', [DisputeController::class, 'allDisputes']);
+    Route::get('/admin/users', [AdminController::class, 'userDirectory']);
     Route::get('/admin/disputes/escalated', [DisputeController::class, 'escalatedDisputes']);
     Route::get('/admin/escalated', [DisputeController::class, 'escalatedDisputes']);
     Route::get('/admin/disputes/filter', [DisputeController::class, 'filterDisputes']);

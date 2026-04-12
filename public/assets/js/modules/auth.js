@@ -103,15 +103,75 @@ async function handleForgotPassword(event) {
     const payload = Object.fromEntries(formData.entries());
 
     try {
-        await apiPost('/forgot-password', payload);
-        feedbackText('#forgotPasswordFeedback', 'Password updated. Redirecting to login...', true);
+        const data = await apiPost('/forgot-password/identify', payload);
+        feedbackText('#forgotPasswordIdentifyFeedback', 'Identifier confirmed. Redirecting...', true);
 
-        const identifier = encodeURIComponent(String(payload.identifier ?? ''));
+        window.setTimeout(() => {
+            window.location.assign(data.next ?? '/portal/password/forgot/email');
+        }, 350);
+    } catch (error) {
+        feedbackText('#forgotPasswordIdentifyFeedback', error.message ?? 'Unable to continue password reset.');
+
+        if (error.status === 404) {
+            window.setTimeout(() => {
+                window.location.assign(error.payload?.signup_url ?? '/portal/signup');
+            }, 1200);
+        }
+    }
+}
+
+async function handleForgotPasswordEmail(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        const data = await apiPost('/forgot-password/email', payload);
+        feedbackText('#forgotPasswordEmailFeedback', 'Verification code sent. Redirecting...', true);
+
+        window.setTimeout(() => {
+            window.location.assign(data.next ?? '/portal/password/forgot/verify');
+        }, 400);
+    } catch (error) {
+        feedbackText('#forgotPasswordEmailFeedback', error.message ?? 'Unable to send verification code.');
+    }
+}
+
+async function handleForgotPasswordVerify(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        const data = await apiPost('/forgot-password/verify', payload);
+        feedbackText('#forgotPasswordVerifyFeedback', 'Code verified. Redirecting...', true);
+
+        window.setTimeout(() => {
+            window.location.assign(data.next ?? '/portal/password/forgot/reset');
+        }, 350);
+    } catch (error) {
+        feedbackText('#forgotPasswordVerifyFeedback', error.message ?? 'Unable to verify the code.');
+    }
+}
+
+async function handleForgotPasswordReset(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        const data = await apiPost('/forgot-password/reset', payload);
+        feedbackText('#forgotPasswordResetFeedback', 'Password updated. Redirecting to login...', true);
+
+        const identifier = encodeURIComponent(String(data.identifier ?? ''));
         window.setTimeout(() => {
             window.location.assign(`/portal/auth?reset=success&identifier=${identifier}`);
         }, 450);
     } catch (error) {
-        feedbackText('#forgotPasswordFeedback', error.message ?? 'Unable to reset password.');
+        feedbackText('#forgotPasswordResetFeedback', error.message ?? 'Unable to reset password.');
     }
 }
 
@@ -129,5 +189,17 @@ export function initAuthSignupPasswordPage() {
 }
 
 export function initAuthForgotPasswordPage() {
-    document.getElementById('forgotPasswordForm')?.addEventListener('submit', handleForgotPassword);
+    document.getElementById('forgotPasswordIdentifyForm')?.addEventListener('submit', handleForgotPassword);
+}
+
+export function initAuthForgotPasswordEmailPage() {
+    document.getElementById('forgotPasswordEmailForm')?.addEventListener('submit', handleForgotPasswordEmail);
+}
+
+export function initAuthForgotPasswordVerifyPage() {
+    document.getElementById('forgotPasswordVerifyForm')?.addEventListener('submit', handleForgotPasswordVerify);
+}
+
+export function initAuthForgotPasswordResetPage() {
+    document.getElementById('forgotPasswordResetForm')?.addEventListener('submit', handleForgotPasswordReset);
 }

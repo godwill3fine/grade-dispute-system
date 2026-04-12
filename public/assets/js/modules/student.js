@@ -97,8 +97,8 @@ function renderStudentDashboardRows(disputes) {
                     <td>${statusBadge(item.status)}</td>
                     <td>${priorityBadge(item.priority)}</td>
                     <td>${escapeHtml(formatDate(item.updated_at ?? item.created_at))}</td>
-                    <td class="text-end">
-                        <a class="btn btn-sm btn-outline-dark" href="/portal/student/disputes/${item.id}">View</a>
+                    <td class="table-action-cell">
+                        <a class="btn btn-outline btn-sm" href="/portal/student/disputes/${item.id}">View</a>
                     </td>
                 </tr>
             `;
@@ -143,8 +143,8 @@ function renderStudentDisputeTable(disputes) {
                     <td>${statusBadge(item.status)}</td>
                     <td>${escapeHtml(item.assigned_to ?? '-')}</td>
                     <td>${escapeHtml(formatDate(item.updated_at ?? item.created_at))}</td>
-                    <td class="text-end">
-                        <a class="btn btn-sm btn-outline-dark" href="/portal/student/disputes/${item.id}">Open</a>
+                    <td class="table-action-cell">
+                        <a class="btn btn-outline btn-sm" href="/portal/student/disputes/${item.id}">Open</a>
                     </td>
                 </tr>
             `;
@@ -269,16 +269,16 @@ function renderStudentDetail(dispute) {
     }
 
     overview.innerHTML = `
-        <dl class="row mb-0">
-            <dt class="col-sm-5">Ticket</dt><dd class="col-sm-7">${escapeHtml(dispute.ticket_number ?? '-')}</dd>
-            <dt class="col-sm-5">Status</dt><dd class="col-sm-7">${statusBadge(dispute.status)}</dd>
-            <dt class="col-sm-5">Priority</dt><dd class="col-sm-7">${priorityBadge(dispute.priority)}</dd>
-            <dt class="col-sm-5">Assigned To</dt><dd class="col-sm-7">${escapeHtml(dispute.assigned_to ?? '-')}</dd>
-            <dt class="col-sm-5">Type</dt><dd class="col-sm-7">${escapeHtml(dispute.type ?? '-')}</dd>
-            <dt class="col-sm-5">Title</dt><dd class="col-sm-7">${escapeHtml(dispute.title ?? '-')}</dd>
-            <dt class="col-sm-5">Description</dt><dd class="col-sm-7">${escapeHtml(dispute.description ?? '-')}</dd>
-            <dt class="col-sm-5">Created</dt><dd class="col-sm-7">${escapeHtml(formatDate(dispute.created_at))}</dd>
-        </dl>
+        <div class="overview-grid">
+            <div class="overview-label">Ticket</div><div class="overview-value">${escapeHtml(dispute.ticket_number ?? '-')}</div>
+            <div class="overview-label">Status</div><div class="overview-value">${statusBadge(dispute.status)}</div>
+            <div class="overview-label">Priority</div><div class="overview-value">${priorityBadge(dispute.priority)}</div>
+            <div class="overview-label">Assigned To</div><div class="overview-value">${escapeHtml(dispute.assigned_to ?? '-')}</div>
+            <div class="overview-label">Type</div><div class="overview-value">${escapeHtml(dispute.type ?? '-')}</div>
+            <div class="overview-label">Title</div><div class="overview-value">${escapeHtml(dispute.title ?? '-')}</div>
+            <div class="overview-label">Description</div><div class="overview-value">${escapeHtml(dispute.description ?? '-')}</div>
+            <div class="overview-label">Created</div><div class="overview-value">${escapeHtml(formatDate(dispute.created_at))}</div>
+        </div>
     `;
 }
 
@@ -293,23 +293,27 @@ function renderTimeline(logs, targetId) {
         return;
     }
 
-    timeline.innerHTML = logs
-        .map((log) => {
-            return `
-                <article class="gd-timeline-item">
-                    <span class="gd-timeline-dot"></span>
-                    <div class="gd-timeline-card">
-                        <div class="d-flex justify-content-between flex-wrap gap-2">
-                            <strong>${escapeHtml(log.action ?? 'Activity')}</strong>
-                            <small class="text-muted">${escapeHtml(formatDate(log.created_at))}</small>
+    timeline.innerHTML = `
+        <div class="timeline-container">
+            ${logs
+                .map((log) => {
+                    return `
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-box">
+                                <div class="timeline-header">
+                                    <h4>${escapeHtml(log.action ?? 'Activity')}</h4>
+                                    <span class="timeline-date">${escapeHtml(formatDate(log.created_at))}</span>
+                                </div>
+                                <span class="timeline-author">By: ${escapeHtml(log.performed_by ?? '-')}</span>
+                                <p>${escapeHtml(log.comment ?? '')}</p>
+                            </div>
                         </div>
-                        <p class="mb-1 text-muted small">By: ${escapeHtml(log.performed_by ?? '-')}</p>
-                        <p class="mb-0">${escapeHtml(log.comment ?? '')}</p>
-                    </div>
-                </article>
-            `;
-        })
-        .join('');
+                    `;
+                })
+                .join('')}
+        </div>
+    `;
 }
 
 function renderAttachments(items, targetId) {
@@ -326,9 +330,9 @@ function renderAttachments(items, targetId) {
     list.innerHTML = items
         .map((item) => {
             return `
-                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/attachment/download/${item.id}">
+                <a class="attachment-link" href="/attachment/download/${item.id}">
                     <span>Attachment #${escapeHtml(item.id)}</span>
-                    <i class="bi bi-download"></i>
+                    <span class="material-symbols-outlined icon-xs">download</span>
                 </a>
             `;
         })
@@ -352,15 +356,17 @@ function renderStudentNotifications(items) {
             return `
                 <button
                     type="button"
-                    class="gd-notification-row ${rowClass}"
+                    class="notification-item ${rowClass}"
                     data-student-notification-id="${escapeHtml(item.id)}"
                 >
-                    <span class="gd-notification-icon"><i class="bi bi-bell"></i></span>
-                    <span class="gd-notification-content">
-                        <strong>${escapeHtml(item.title ?? 'Notification')}</strong>
-                        <span>${escapeHtml(item.message ?? '')}</span>
+                    <span class="notification-icon">
+                        <span class="material-symbols-outlined">notifications</span>
                     </span>
-                    <span class="gd-notification-meta">${escapeHtml(formatDate(item.created_at))}</span>
+                    <span class="notification-content">
+                        <h4>${escapeHtml(item.title ?? 'Notification')}</h4>
+                        <p>${escapeHtml(item.message ?? '')}</p>
+                    </span>
+                    <span class="notification-time">${escapeHtml(formatDate(item.created_at))}</span>
                 </button>
             `;
         })

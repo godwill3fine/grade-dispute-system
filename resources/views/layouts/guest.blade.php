@@ -3,11 +3,13 @@
 @section('body_class', 'gd-guest-body')
 
 @section('body')
-    <div class="gd-guest-bg"></div>
-    <main class="container py-5">
-        @if (session('auth_error'))
-            <div class="alert alert-warning border-0 shadow-sm mb-4">{{ session('auth_error') }}</div>
-        @endif
+    <div class="theme-toggle-container">
+        <span class="material-symbols-outlined" id="theme-toggle">dark_mode</span>
+    </div>
+
+    <canvas id="particle-canvas"></canvas>
+
+    <main class="login-wrapper">
         @yield('content')
     </main>
 @endsection

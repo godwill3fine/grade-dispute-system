@@ -5,26 +5,38 @@
 @section('page_title', 'Recent Activity')
 
 @section('content')
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-        <h3 class="h6 mb-0">Latest System Actions</h3>
-        <button class="btn btn-sm btn-outline-primary" id="refreshActivityBtn" type="button">Refresh</button>
+<div class="page-header flex-header page-header-plain">
+    <div class="header-text">
+        <span class="eyebrow">AUDIT TRAIL</span>
+        <h1>Latest System Actions</h1>
+        <p>Review the most recent administrative and workflow events recorded by the system.</p>
     </div>
+    <button class="btn btn-outline btn-surface" id="refreshActivityBtn" type="button">
+        <span class="material-symbols-outlined">refresh</span> Refresh
+    </button>
+</div>
+
+<div class="table-container">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="tickets-table">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>Actor</th>
-                    <th>Action</th>
-                    <th>Target</th>
-                    <th>Description</th>
+                    <th>TIME</th>
+                    <th>ACTOR</th>
+                    <th>ACTION</th>
+                    <th>TARGET</th>
+                    <th>DESCRIPTION</th>
                 </tr>
             </thead>
             <tbody id="adminActivityTableBody">
                 <tr><td colspan="5" class="text-muted text-center py-4">Loading activity...</td></tr>
             </tbody>
         </table>
+    </div>
+
+    <div class="table-footer-pagination">
+        <div class="pagination-info" id="adminActivityPaginationInfo">Showing 0 to 0 of 0 total records</div>
+        <div class="pagination-controls" id="adminActivityPaginationControls"></div>
     </div>
 </div>
 @endsection

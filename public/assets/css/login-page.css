@@ -1,0 +1,198 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: var(--color-bg-main);
+}
+
+#particle-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.login-wrapper {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100vw;
+    padding: 20px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 48px 40px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-divider);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+}
+
+.login-header {
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+.brand-icon {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--color-bg-hover);
+    border-radius: 50%;
+    color: var(--color-primary);
+    font-size: 48px !important;
+}
+
+.login-header h2 {
+    margin-bottom: 8px;
+    color: var(--color-text-primary);
+    font-size: 1.5rem;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.5px;
+}
+
+.login-header p {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.input-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 16px;
+    color: var(--color-text-muted);
+    font-size: 20px !important;
+    pointer-events: none;
+}
+
+.input-icon-wrapper .form-control {
+    padding-left: 44px;
+}
+
+.form-options-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+body[data-page="auth-login"] .login-card form {
+    gap: 12px;
+}
+
+body[data-page="auth-login"] .login-card .form-group,
+body[data-page="auth-login"] .login-card .form-group.form-group-compact {
+    margin-bottom: 0;
+}
+
+body[data-page="auth-login"] .form-options-row {
+    margin-bottom: 6px;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+}
+
+.remember-me input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    appearance: auto;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.forgot-link {
+    color: var(--color-link);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    transition: color var(--transition-speed) ease;
+}
+
+.forgot-link:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-login {
+    padding: 14px 24px;
+    font-size: var(--font-size-md);
+}
+
+.login-footer {
+    margin-top: 16px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+body[data-page="auth-login"] #loginFeedback {
+    min-height: 0;
+    margin-top: 6px;
+}
+
+body[data-page="auth-login"] #loginFeedback:empty {
+    display: none;
+}
+
+.signup-link {
+    margin-left: 4px;
+    color: var(--color-accent);
+    font-weight: var(--font-weight-bold);
+    transition: color var(--transition-speed) ease;
+}
+
+.signup-link:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+.theme-toggle-container {
+    position: absolute;
+    top: 24px;
+    right: 32px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-divider);
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.theme-toggle-container:hover {
+    transform: scale(1.1);
+    background: var(--color-bg-hover);
+    box-shadow: var(--shadow-md);
+}
+
+.theme-toggle-container .material-symbols-outlined {
+    font-size: 24px;
+}

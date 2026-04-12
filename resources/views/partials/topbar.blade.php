@@ -1,37 +1,55 @@
-<header class="gd-topbar border-bottom">
-    <div class="d-flex align-items-center justify-content-between px-4 py-3">
-        <div>
-            <p class="text-uppercase text-muted small mb-1">Academic Workflow Portal</p>
-            <h2 class="h4 mb-0">@yield('page_title', 'Dashboard')</h2>
-        </div>
+@php
+    use Illuminate\Support\Str;
 
-        <div class="d-flex align-items-center gap-3">
-            <div class="dropdown">
-                <button
-                    class="btn btn-light border position-relative"
-                    data-bs-toggle="dropdown"
-                    data-notification-toggle
-                    aria-expanded="false"
-                    type="button"
-                >
-                    <i class="bi bi-bell"></i>
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" data-notification-count>0</span>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end shadow-sm p-0 gd-notification-menu">
-                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-                        <strong class="small text-uppercase">Notifications</strong>
-                        <span class="badge text-bg-secondary" data-notification-total>0</span>
-                    </div>
-                    <div data-notification-list class="list-group list-group-flush gd-notification-list">
-                        <div class="list-group-item text-muted small">No notifications yet.</div>
-                    </div>
+    $currentHour = now()->hour;
+    $greetingPrefix = match (true) {
+        $currentHour < 12 => 'Good morning',
+        $currentHour < 17 => 'Good afternoon',
+        default => 'Good evening',
+    };
+    $dashboardHeadline = $greetingPrefix.', '.Str::before(auth()->user()->name ?? 'User', ' ');
+    $pageHeadline = html_entity_decode((string) $__env->yieldContent('page_title', 'Dashboard'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $headline = request()->routeIs('portal.student.dashboard', 'portal.lecturer.dashboard', 'portal.admin.dashboard')
+        ? $dashboardHeadline
+        : $pageHeadline;
+@endphp
+
+<header class="navbar">
+    <div class="navbar-left">
+        <span class="material-symbols-outlined mobile-menu" id="mobile-menu">menu</span>
+        <h2 class="greeting">{{ $headline }}</h2>
+        <h2 class="page-title">Grade Dispute Portal</h2>
+    </div>
+
+    <div class="navbar-right">
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle theme">
+            <span class="material-symbols-outlined" data-theme-icon>dark_mode</span>
+        </button>
+
+        <div class="dropdown">
+            <button
+                class="icon-button icon-button-notification"
+                data-bs-toggle="dropdown"
+                data-notification-toggle
+                aria-expanded="false"
+                type="button"
+            >
+                <span class="material-symbols-outlined">notifications</span>
+                <span class="notification-badge d-none" data-notification-count>0</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow-sm p-0 gd-notification-menu">
+                <div class="gd-notification-menu-header">
+                    <strong>Notifications</strong>
+                    <span class="gd-notification-total" data-notification-total>0</span>
+                </div>
+                <div data-notification-list class="gd-notification-list">
+                    <div class="gd-notification-empty">No notifications yet.</div>
                 </div>
             </div>
-
-            <div class="text-end">
-                <p class="mb-0 fw-semibold">{{ auth()->user()->name }}</p>
-                <small class="text-muted">{{ auth()->user()->identifier }}</small>
-            </div>
         </div>
+
+        <button class="icon-button" type="button" title="Settings" aria-label="Settings">
+            <span class="material-symbols-outlined">settings</span>
+        </button>
     </div>
 </header>

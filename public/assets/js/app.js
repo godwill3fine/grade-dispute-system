@@ -1,11 +1,22 @@
-import { initAdminActivity, initAdminDashboard, initAdminDisputes, initAdminReports, initAdminSettings } from './modules/admin.js';
 import {
+    initAdminActivity,
+    initAdminDashboard,
+    initAdminDisputes,
+    initAdminEscalations,
+    initAdminReports,
+    initAdminSettings,
+    initAdminUsers,
+} from './modules/admin.js';
+import {
+    initAuthForgotPasswordEmailPage,
     initAuthForgotPasswordPage,
+    initAuthForgotPasswordResetPage,
+    initAuthForgotPasswordVerifyPage,
     initAuthLoginPage,
     initAuthSignupIdentifierPage,
     initAuthSignupPasswordPage,
 } from './modules/auth.js';
-import { initLecturerDashboard, initLecturerDisputeDetail, initLecturerDisputes } from './modules/lecturer.js';
+import { initLecturerDashboard, initLecturerDisputeDetail, initLecturerDisputes, initLecturerHistory } from './modules/lecturer.js';
 import { initNotifications } from './modules/notifications.js';
 import { pageId } from './modules/dom.js';
 import {
@@ -50,6 +61,15 @@ async function bootstrap() {
         case 'auth-forgot-password':
             initAuthForgotPasswordPage();
             break;
+        case 'auth-forgot-email':
+            initAuthForgotPasswordEmailPage();
+            break;
+        case 'auth-forgot-verify':
+            initAuthForgotPasswordVerifyPage();
+            break;
+        case 'auth-forgot-reset':
+            initAuthForgotPasswordResetPage();
+            break;
 
         case 'student-dashboard':
             await initStudentDashboard();
@@ -74,6 +94,9 @@ async function bootstrap() {
         case 'lecturer-disputes':
             await initLecturerDisputes();
             break;
+        case 'lecturer-history':
+            await initLecturerHistory();
+            break;
         case 'lecturer-dispute-detail':
             await initLecturerDisputeDetail();
             break;
@@ -83,6 +106,12 @@ async function bootstrap() {
             break;
         case 'admin-disputes':
             await initAdminDisputes();
+            break;
+        case 'admin-users':
+            await initAdminUsers();
+            break;
+        case 'admin-escalations':
+            await initAdminEscalations();
             break;
         case 'admin-reports':
             await initAdminReports();

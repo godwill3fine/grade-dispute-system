@@ -30,6 +30,22 @@ trait HasSplitName
         return $this->getFullNameAttribute();
     }
 
+    public function getFormalNameAttribute(): string
+    {
+        $salutation = $this->normalizeName($this->attributes['salutation'] ?? null);
+        $lastName = $this->normalizeName($this->attributes['last_name'] ?? null);
+
+        if ($salutation !== '' && $lastName !== '') {
+            return trim($salutation.' '.$lastName);
+        }
+
+        if ($lastName !== '') {
+            return $lastName;
+        }
+
+        return $this->getDisplayNameAttribute();
+    }
+
     protected function combineNameParts(?string $firstName, ?string $lastName): string
     {
         $parts = array_filter([

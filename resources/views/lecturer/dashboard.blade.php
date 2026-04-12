@@ -5,41 +5,82 @@
 @section('page_title', 'Lecturer Dashboard')
 
 @section('content')
-<div class="row g-3 mb-4" id="lecturerMetricCards">
-    <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Assigned</p><h3 data-metric="assigned" class="mb-0">0</h3></div></div>
+<div class="stats-container stats-grid-4" id="lecturerMetricCards">
+    <div class="stat-card">
+        <span class="material-symbols-outlined stat-icon">description</span>
+        <h4>Assigned</h4>
+        <span class="stat-value" data-metric="assigned">0</span>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Pending</p><h3 data-metric="pending" class="mb-0">0</h3></div></div>
+    <div class="stat-card">
+        <span class="material-symbols-outlined stat-icon">schedule</span>
+        <h4>Pending Review</h4>
+        <span class="stat-value" data-metric="pending">0</span>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Under Review</p><h3 data-metric="under_review" class="mb-0">0</h3></div></div>
+    <div class="stat-card">
+        <span class="material-symbols-outlined stat-icon">check_circle</span>
+        <h4>Under Review</h4>
+        <span class="stat-value" data-metric="under_review">0</span>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Overdue</p><h3 data-metric="overdue" class="mb-0">0</h3></div></div>
+    <div class="stat-card">
+        <span class="material-symbols-outlined stat-icon">warning</span>
+        <h4>Overdue</h4>
+        <span class="stat-value" data-metric="overdue">0</span>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-        <h4 class="h6 mb-0">Recent Assigned Disputes</h4>
-        <a href="{{ route('portal.lecturer.disputes') }}" class="btn btn-sm btn-primary">Open Queue</a>
+<div class="table-section-header">
+    <h2>Disputes requiring action</h2>
+    <div class="header-actions">
+        <a href="{{ route('portal.lecturer.disputes') }}" class="btn btn-outline">
+            <span class="material-symbols-outlined">open_in_new</span> Open Queue
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline btn-surface" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="material-symbols-outlined">filter_alt</span> Filter
+            </button>
+            <div class="dropdown-menu dropdown-menu-end lecturer-filter-menu shadow-sm">
+                <label for="lecturerDashboardStatusFilter">Filter Status</label>
+                <select class="status-filter w-100" id="lecturerDashboardStatusFilter">
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="under_review">Under Review</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-outline btn-surface" id="lecturerDashboardExport" type="button">
+            <span class="material-symbols-outlined">upload</span> Export
+        </button>
     </div>
+</div>
+
+<div class="course-filters" id="lecturerDashboardCourseFilters"></div>
+
+<div class="table-container">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="tickets-table">
             <thead>
                 <tr>
-                    <th>Ticket</th>
-                    <th>Student</th>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Updated</th>
+                    <th>TICKET</th>
+                    <th>STUDENT</th>
+                    <th>TITLE</th>
+                    <th>STATUS</th>
+                    <th>UPDATED</th>
+                    <th>ACTION</th>
                 </tr>
             </thead>
             <tbody id="lecturerRecentDisputes">
-                <tr><td colspan="5" class="text-muted text-center py-4">Loading disputes...</td></tr>
+                <tr><td colspan="6" class="text-muted text-center py-4">Loading disputes...</td></tr>
             </tbody>
         </table>
     </div>
+</div>
+
+<div class="guidelines-card">
+    <h4>Review Guidelines</h4>
+    <ul>
+        <li>Review deadline is 5 business days from submission.</li>
+        <li>Provide concise feedback for each decision you make.</li>
+        <li>Escalate complex or overdue cases when resolution needs higher review.</li>
+    </ul>
 </div>
 @endsection

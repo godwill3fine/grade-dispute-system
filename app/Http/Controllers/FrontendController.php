@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
+use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,7 +65,72 @@ class FrontendController extends Controller
             return $this->redirectByRole(Auth::user()->role);
         }
 
+        request()->session()->forget('password_reset_flow');
+
         return view('auth.forgot-password');
+    }
+
+    public function forgotPasswordEmailPage(Request $request): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            return $this->redirectByRole(Auth::user()->role);
+        }
+
+        $flow = $request->session()->get('password_reset_flow', []);
+        $identifier = trim((string) ($flow['identifier'] ?? ''));
+
+        if ($identifier === '') {
+            return redirect()
+                ->route('portal.password.forgot')
+                ->with('auth_error', 'Start by entering your University ID first.');
+        }
+
+        return view('auth.forgot-password-email', [
+            'identifier' => $identifier,
+        ]);
+    }
+
+    public function forgotPasswordVerifyPage(Request $request): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            return $this->redirectByRole(Auth::user()->role);
+        }
+
+        $flow = $request->session()->get('password_reset_flow', []);
+        $identifier = trim((string) ($flow['identifier'] ?? ''));
+        $email = trim((string) ($flow['email'] ?? ''));
+
+        if ($identifier === '' || $email === '') {
+            return redirect()
+                ->route('portal.password.forgot')
+                ->with('auth_error', 'Start the reset process again with your University ID.');
+        }
+
+        return view('auth.forgot-password-verify', [
+            'identifier' => $identifier,
+            'maskedEmail' => $this->maskEmail($email),
+        ]);
+    }
+
+    public function forgotPasswordResetPage(Request $request): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            return $this->redirectByRole(Auth::user()->role);
+        }
+
+        $flow = $request->session()->get('password_reset_flow', []);
+        $identifier = trim((string) ($flow['identifier'] ?? ''));
+        $verifiedAt = trim((string) ($flow['verified_at'] ?? ''));
+
+        if ($identifier === '' || $verifiedAt === '') {
+            return redirect()
+                ->route('portal.password.forgot')
+                ->with('auth_error', 'Verify your reset code before setting a new password.');
+        }
+
+        return view('auth.forgot-password-reset', [
+            'identifier' => $identifier,
+        ]);
     }
 
     public function appHome(): RedirectResponse
@@ -127,6 +194,13 @@ class FrontendController extends Controller
         return view('lecturer.disputes');
     }
 
+    public function lecturerHistory(): View
+    {
+        $this->ensureRole('lecturer');
+
+        return view('lecturer.history');
+    }
+
     public function lecturerDisputeDetail(int $id): View
     {
         $this->ensureRole('lecturer');
@@ -147,7 +221,39 @@ class FrontendController extends Controller
     {
         $this->ensureRole('admin');
 
-        return view('admin.disputes');
+        $departments = Department::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $units = Unit::query()
+            ->with('department:id,name')
+            ->orderBy('unit_code')
+            ->get(['unit_code', 'unit_name', 'department_id']);
+
+        return view('admin.disputes', [
+            'adminDisputeMeta' => [
+                'departments' => $departments
+                    ->map(fn (Department $department) => [
+                        'id' => $department->id,
+                        'name' => $department->name,
+                    ])
+                    ->values(),
+                'units' => $units
+                    ->map(fn (Unit $unit) => [
+                        'unit_code' => $unit->unit_code,
+                        'unit_name' => $unit->unit_name,
+                        'department_name' => $unit->department?->name,
+                    ])
+                    ->values(),
+            ],
+        ]);
+    }
+
+    public function adminUsers(): View
+    {
+        $this->ensureRole('admin');
+
+        return view('admin.users');
     }
 
     public function adminReports(): View
@@ -155,6 +261,13 @@ class FrontendController extends Controller
         $this->ensureRole('admin');
 
         return view('admin.reports');
+    }
+
+    public function adminEscalations(): View
+    {
+        $this->ensureRole('admin');
+
+        return view('admin.escalations');
     }
 
     public function adminSettings(): View
@@ -199,5 +312,24 @@ class FrontendController extends Controller
         return redirect()
             ->route('portal.auth')
             ->with('auth_error', 'Your role is not yet supported in this web interface.');
+    }
+
+    private function maskEmail(string $email): string
+    {
+        $normalized = trim($email);
+        if ($normalized === '' || ! str_contains($normalized, '@')) {
+            return $normalized;
+        }
+
+        [$local, $domain] = explode('@', $normalized, 2);
+        $localLength = strlen($local);
+
+        if ($localLength <= 2) {
+            $maskedLocal = substr($local, 0, 1).str_repeat('*', max($localLength - 1, 1));
+        } else {
+            $maskedLocal = substr($local, 0, 1).str_repeat('*', max($localLength - 2, 1)).substr($local, -1);
+        }
+
+        return $maskedLocal.'@'.$domain;
     }
 }

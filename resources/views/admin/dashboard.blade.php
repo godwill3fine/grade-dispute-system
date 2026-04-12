@@ -5,48 +5,111 @@
 @section('page_title', 'Admin Dashboard')
 
 @section('content')
-<div class="row g-3 mb-4" id="adminMetricCards">
-    <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Total</p><h3 data-metric="total_disputes" class="mb-0">0</h3></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Pending</p><h3 data-metric="pending" class="mb-0">0</h3></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Review</p><h3 data-metric="under_review" class="mb-0">0</h3></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Resolved</p><h3 data-metric="resolved" class="mb-0">0</h3></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Escalated</p><h3 data-metric="escalated" class="mb-0">0</h3></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm gd-stat-card"><div class="card-body"><p class="text-muted mb-2">Long Unresolved</p><h3 data-alert="long_unresolved" class="mb-0">0</h3></div></div></div>
+<div class="stats-container stats-grid-4 admin-dashboard-stats" id="adminMetricCards">
+    <div class="stat-card admin-stat">
+        <div class="stat-top">
+            <span class="material-symbols-outlined">trending_up</span>
+            <span class="trend trend-up">Live</span>
+        </div>
+        <span class="stat-value" data-metric="total_disputes">0</span>
+        <h4>Total Disputes</h4>
+    </div>
+    <div class="stat-card admin-stat">
+        <div class="stat-top">
+            <span class="material-symbols-outlined">trending_down</span>
+            <span class="trend trend-down">Rolling</span>
+        </div>
+        <span class="stat-value" data-metric="average_resolution_time">0.0 days</span>
+        <h4>Average Resolution Time</h4>
+    </div>
+    <div class="stat-card admin-stat">
+        <div class="stat-top">
+            <span class="material-symbols-outlined">verified</span>
+            <span class="trend trend-up">Stable</span>
+        </div>
+        <span class="stat-value" data-metric="resolved">0</span>
+        <h4>Resolved Cases</h4>
+    </div>
+    <div class="stat-card admin-stat">
+        <div class="stat-top">
+            <span class="material-symbols-outlined">groups</span>
+            <span class="trend trend-up">Current</span>
+        </div>
+        <span class="stat-value" data-metric="active_users">0</span>
+        <h4>Active Users</h4>
+    </div>
 </div>
 
-<div class="row g-4">
-    <div class="col-12 col-xl-8">
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Disputes Per Month</h3></div>
-            <div class="card-body"><canvas id="adminMonthChart" height="120"></canvas></div>
+<div class="admin-grid admin-dashboard-grid">
+    <div class="detail-card detail-card-flat admin-trend-card">
+        <div class="detail-card-header detail-card-header-inline admin-trend-header">
+            <span>Dispute Trends</span>
+            <div class="toggle-group" id="adminTrendRange">
+                <button class="active" data-trend-range="week" type="button">Week</button>
+                <button data-trend-range="month" type="button">Month</button>
+                <button data-trend-range="year" type="button">Year</button>
+            </div>
         </div>
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Disputes by Status</h3></div>
-            <div class="card-body"><canvas id="adminStatusChart" height="120"></canvas></div>
+        <div class="detail-card-body detail-card-body-stretch">
+            <div class="chart-panel admin-trend-panel">
+                <canvas id="adminTrendChart" height="110"></canvas>
+            </div>
         </div>
     </div>
 
-    <div class="col-12 col-xl-4">
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Operational Alerts</h3></div>
-            <div class="list-group list-group-flush" id="adminAlertList">
-                <div class="list-group-item d-flex justify-content-between"><span>Unassigned</span><strong data-alert="unassigned">0</strong></div>
-                <div class="list-group-item d-flex justify-content-between"><span>Pending Overdue</span><strong data-alert="pending_overdue">0</strong></div>
-                <div class="list-group-item d-flex justify-content-between"><span>Escalation Soon</span><strong data-alert="escalation_soon">0</strong></div>
-                <div class="list-group-item d-flex justify-content-between"><span>Escalated</span><strong data-alert="escalated">0</strong></div>
+    <div class="detail-card detail-card-flat admin-activity-card">
+        <div class="detail-card-header detail-card-header-inline detail-card-header-tight">
+            <span class="material-symbols-outlined icon-sm">calendar_today</span>
+            <span>Recent Activity</span>
+        </div>
+        <div class="detail-card-body activity-feed admin-activity-feed" id="adminRecentActivity">
+            <div class="activity-item">
+                <div class="activity-title">Loading recent activity...</div>
             </div>
         </div>
+    </div>
+</div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                <h3 class="h6 mb-0">Quick Access</h3>
-            </div>
-            <div class="card-body d-grid gap-2">
-                <a class="btn btn-outline-primary" href="{{ route('portal.admin.disputes') }}">Open Dispute Queue</a>
-                <a class="btn btn-outline-primary" href="{{ route('portal.admin.reports') }}">View Reports</a>
-                <a class="btn btn-outline-primary" href="{{ route('portal.admin.settings') }}">Manage Settings</a>
-            </div>
-        </div>
+<div class="table-container table-container-spaced">
+    <div class="table-controls">
+        <h3 class="section-title">Unit Summary</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="tickets-table admin-summary-table">
+            <thead>
+                <tr>
+                    <th>UNIT</th>
+                    <th>TOTAL DISPUTES</th>
+                    <th>PENDING</th>
+                    <th>RESOLVED</th>
+                    <th>AVG. RESOLUTION TIME</th>
+                    <th>ACTION</th>
+                </tr>
+            </thead>
+            <tbody id="adminUnitSummaryTableBody">
+                <tr><td colspan="6" class="text-muted text-center py-4">Loading unit summary...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alerts-section">
+    <h3><span class="material-symbols-outlined">error</span> System Alerts</h3>
+    <div class="alert-card alert-danger">
+        <span class="alert-title">Unassigned disputes</span>
+        <p class="alert-desc"><strong data-alert="unassigned">0</strong> disputes need routing.</p>
+    </div>
+    <div class="alert-card alert-info">
+        <span class="alert-title">Pending overdue</span>
+        <p class="alert-desc"><strong data-alert="pending_overdue">0</strong> disputes are past the expected review window.</p>
+    </div>
+    <div class="alert-card alert-info">
+        <span class="alert-title">Escalation queue</span>
+        <p class="alert-desc">
+            <strong data-alert="escalation_soon">0</strong> nearing escalation,
+            <strong data-alert="escalated">0</strong> already escalated,
+            <strong data-alert="long_unresolved">0</strong> long unresolved.
+        </p>
     </div>
 </div>
 @endsection

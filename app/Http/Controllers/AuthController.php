@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\PasswordResetCodeMail;
 use App\Models\Student;
 use App\Models\Lecturer;
 use App\Models\Staff;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
+    private const PASSWORD_RESET_SESSION_KEY = 'password_reset_flow';
+    private const PASSWORD_RESET_CODE_TTL_MINUTES = 10;
+    private const PASSWORD_RESET_VERIFICATION_TTL_MINUTES = 15;
+
     private function resolveUserProfile(string $identifier, string $role): ?array
     {
         if ($role === 'student') {
@@ -171,6 +176,194 @@ class AuthController extends Controller
         ]);
     }
 
+    public function forgotPasswordIdentify(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required|string',
+        ]);
+
+        $identifier = trim((string) $request->identifier);
+        $user = User::where('identifier', $identifier)->first();
+
+        if (! $user) {
+            $this->clearPasswordResetFlow($request);
+
+            return response()->json([
+                'error' => 'We could not find that University ID in the system. Redirecting you to sign up.',
+                'signup_url' => route('portal.signup'),
+            ], 404);
+        }
+
+        $this->storePasswordResetFlow($request, [
+            'identifier' => $user->identifier,
+            'email' => strtolower(trim((string) $user->email)),
+            'code_hash' => null,
+            'code_expires_at' => null,
+            'verified_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Identifier confirmed.',
+            'next' => route('portal.password.forgot.email'),
+        ]);
+    }
+
+    public function forgotPasswordSendCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $flow = $this->passwordResetFlow($request);
+        $identifier = trim((string) ($flow['identifier'] ?? ''));
+
+        if ($identifier === '') {
+            return response()->json([
+                'error' => 'Start by entering your University ID first.',
+            ], 409);
+        }
+
+        $user = User::where('identifier', $identifier)->first();
+        if (! $user) {
+            $this->clearPasswordResetFlow($request);
+
+            return response()->json([
+                'error' => 'That account is no longer available. Start again from the beginning.',
+            ], 404);
+        }
+
+        $enteredEmail = strtolower(trim((string) $request->email));
+        $storedEmail = strtolower(trim((string) $user->email));
+
+        if ($enteredEmail !== $storedEmail) {
+            return response()->json([
+                'error' => 'That email address does not match our records for this account.',
+            ], 422);
+        }
+
+        $code = (string) random_int(100000, 999999);
+
+        try {
+            Mail::to($user->email)->send(
+                new PasswordResetCodeMail(
+                    (string) $user->name,
+                    $code,
+                    self::PASSWORD_RESET_CODE_TTL_MINUTES
+                )
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'error' => 'Unable to send the verification code right now. Please try again shortly.',
+            ], 500);
+        }
+
+        $this->storePasswordResetFlow($request, [
+            'identifier' => $user->identifier,
+            'email' => $storedEmail,
+            'code_hash' => Hash::make($code),
+            'code_expires_at' => now()->addMinutes(self::PASSWORD_RESET_CODE_TTL_MINUTES)->toIso8601String(),
+            'verified_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Verification code sent.',
+            'next' => route('portal.password.forgot.verify'),
+        ]);
+    }
+
+    public function forgotPasswordVerifyCode(Request $request)
+    {
+        $request->validate([
+            'code' => ['required', 'regex:/^\d{6}$/'],
+        ]);
+
+        $flow = $this->passwordResetFlow($request);
+        $identifier = trim((string) ($flow['identifier'] ?? ''));
+        $codeHash = (string) ($flow['code_hash'] ?? '');
+        $expiresAt = (string) ($flow['code_expires_at'] ?? '');
+
+        if ($identifier === '' || $codeHash === '' || $expiresAt === '') {
+            return response()->json([
+                'error' => 'Request a new verification code to continue.',
+            ], 409);
+        }
+
+        if (now()->greaterThan(\Illuminate\Support\Carbon::parse($expiresAt))) {
+            $this->storePasswordResetFlow($request, [
+                'code_hash' => null,
+                'code_expires_at' => null,
+                'verified_at' => null,
+            ]);
+
+            return response()->json([
+                'error' => 'That verification code has expired. Request a new code and try again.',
+            ], 422);
+        }
+
+        if (! Hash::check((string) $request->code, $codeHash)) {
+            return response()->json([
+                'error' => 'The verification code you entered is invalid.',
+            ], 422);
+        }
+
+        $this->storePasswordResetFlow($request, [
+            'code_hash' => null,
+            'code_expires_at' => null,
+            'verified_at' => now()->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'message' => 'Verification successful.',
+            'next' => route('portal.password.forgot.reset'),
+        ]);
+    }
+
+    public function forgotPasswordReset(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $flow = $this->passwordResetFlow($request);
+        $identifier = trim((string) ($flow['identifier'] ?? ''));
+        $verifiedAt = (string) ($flow['verified_at'] ?? '');
+
+        if ($identifier === '' || $verifiedAt === '') {
+            return response()->json([
+                'error' => 'Verify your reset code before setting a new password.',
+            ], 409);
+        }
+
+        if (now()->greaterThan(\Illuminate\Support\Carbon::parse($verifiedAt)->addMinutes(self::PASSWORD_RESET_VERIFICATION_TTL_MINUTES))) {
+            $this->clearPasswordResetFlow($request);
+
+            return response()->json([
+                'error' => 'Your reset session expired. Start the reset process again.',
+            ], 422);
+        }
+
+        $user = User::where('identifier', $identifier)->first();
+        if (! $user) {
+            $this->clearPasswordResetFlow($request);
+
+            return response()->json([
+                'error' => 'That account is no longer available. Start again from the beginning.',
+            ], 404);
+        }
+
+        $user->password = Hash::make((string) $request->password);
+        $user->save();
+
+        $this->clearPasswordResetFlow($request);
+
+        return response()->json([
+            'message' => 'Password reset successful',
+            'identifier' => $user->identifier,
+        ]);
+    }
+
     public function logout(Request $request)
     {
         Auth::logout();
@@ -184,5 +377,25 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Logged out successfully',
         ]);
+    }
+
+    private function passwordResetFlow(Request $request): array
+    {
+        $flow = $request->session()->get(self::PASSWORD_RESET_SESSION_KEY, []);
+
+        return is_array($flow) ? $flow : [];
+    }
+
+    private function storePasswordResetFlow(Request $request, array $data): void
+    {
+        $request->session()->put(
+            self::PASSWORD_RESET_SESSION_KEY,
+            array_merge($this->passwordResetFlow($request), $data)
+        );
+    }
+
+    private function clearPasswordResetFlow(Request $request): void
+    {
+        $request->session()->forget(self::PASSWORD_RESET_SESSION_KEY);
     }
 }

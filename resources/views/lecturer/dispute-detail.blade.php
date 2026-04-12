@@ -6,65 +6,64 @@
 @section('dispute_id', (string) $disputeId)
 
 @section('content')
-<div class="row g-4">
-    <div class="col-12 col-lg-5">
-        <section class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Dispute Summary</h3></div>
-            <div class="card-body" id="lecturerDisputeOverview">
+<div class="details-grid">
+    <div class="details-left">
+        <section class="detail-card">
+            <div class="detail-card-header">Dispute Summary</div>
+            <div class="detail-card-body" id="lecturerDisputeOverview">
                 <p class="text-muted mb-0">Loading dispute details...</p>
             </div>
         </section>
 
-        <section class="card border-0 shadow-sm">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Attachments</h3></div>
-            <div class="list-group list-group-flush" id="lecturerAttachmentList">
-                <div class="list-group-item text-muted">No attachments available.</div>
+        <section class="detail-card">
+            <div class="detail-card-header">Attachments</div>
+            <div class="detail-card-body" id="lecturerAttachmentList">
+                <p class="empty-state">No attachments available.</p>
             </div>
         </section>
     </div>
 
-    <div class="col-12 col-lg-7">
-        <section class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Actions</h3></div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <form id="lecturerResponseForm" class="d-grid gap-2">
-                            <label class="form-label mb-0">Add Response</label>
-                            <textarea class="form-control" name="comment" rows="3" required></textarea>
-                            <button class="btn btn-primary" type="submit">Submit Response</button>
-                            <p class="small text-muted mb-0" id="lecturerResponseFeedback"></p>
-                        </form>
+    <div class="details-right">
+        <section class="detail-card">
+            <div class="detail-card-header">Actions</div>
+            <div class="detail-card-body">
+                <form id="lecturerResponseForm" class="form-group">
+                    <label for="lecturerResponseComment">Add Response</label>
+                    <textarea class="form-control" id="lecturerResponseComment" name="comment" rows="3" required></textarea>
+                    <div class="form-actions form-actions-compact">
+                        <p class="auth-feedback mb-0" id="lecturerResponseFeedback"></p>
+                        <button class="btn btn-primary" type="submit">Submit Response</button>
                     </div>
-                    <div class="col-12">
-                        <form id="lecturerStatusForm" class="row g-2 align-items-end">
-                            <div class="col-md-5">
-                                <label class="form-label mb-0">Update Status</label>
-                                <select class="form-select" name="status" required>
-                                    <option value="pending">Pending</option>
-                                    <option value="under_review">Under Review</option>
-                                    <option value="resolved">Resolved</option>
-                                    <option value="escalated">Escalated</option>
-                                </select>
-                            </div>
-                            <div class="col-md-7">
-                                <label class="form-label mb-0">Comment (Optional)</label>
-                                <input class="form-control" name="comment" placeholder="Status note">
-                            </div>
-                            <div class="col-12">
-                                <button class="btn btn-outline-primary" type="submit">Apply Status</button>
-                            </div>
-                            <p class="small text-muted mb-0" id="lecturerStatusFeedback"></p>
-                        </form>
+                </form>
+
+                <form id="lecturerStatusForm" class="form-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="lecturerStatusValue">Update Status</label>
+                            <select class="form-control" id="lecturerStatusValue" name="status" required>
+                                <option value="pending">Pending</option>
+                                <option value="under_review">Under Review</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="escalated">Escalated</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="lecturerStatusComment">Comment (Optional)</label>
+                            <input class="form-control" id="lecturerStatusComment" name="comment" placeholder="Status note">
+                        </div>
                     </div>
-                </div>
+                    <div class="form-actions form-actions-compact">
+                        <p class="auth-feedback mb-0" id="lecturerStatusFeedback"></p>
+                        <button class="btn btn-outline" type="submit">Apply Status</button>
+                    </div>
+                </form>
             </div>
         </section>
 
-        <section class="card border-0 shadow-sm">
-            <div class="card-header bg-transparent"><h3 class="h6 mb-0">Timeline & Logs</h3></div>
-            <div class="card-body">
-                <div class="gd-timeline" id="lecturerTimeline">
+        <section class="detail-card">
+            <div class="detail-card-header">Timeline &amp; Logs</div>
+            <div class="detail-card-body">
+                <div id="lecturerTimeline">
                     <p class="text-muted mb-0">Loading timeline...</p>
                 </div>
             </div>

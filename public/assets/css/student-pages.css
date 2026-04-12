@@ -1,0 +1,23 @@
+.badge-pending {
+    color: var(--status-pending);
+}
+
+.badge-escalated {
+    color: var(--status-escalated);
+}
+
+.badge-high {
+    color: var(--status-danger);
+}
+
+.badge-medium {
+    color: var(--status-review);
+}
+
+.badge-review {
+    color: var(--status-review);
+}
+
+.badge-resolved {
+    color: var(--status-resolved);
+}

@@ -3,16 +3,21 @@
 @section('body_class', 'gd-app-body')
 
 @section('body')
-    <div class="gd-app-shell">
+    <div class="wrapper">
+        <div class="overlay"></div>
         @include('partials.sidebar')
 
-        <div class="gd-app-main">
+        <div class="main">
             @include('partials.topbar')
 
-            <main class="gd-content container-fluid py-4">
-                <div id="globalAlert" class="alert d-none" role="alert"></div>
+            <main class="content">
+                <div id="globalAlert" class="alert d-none app-inline-alert" role="alert"></div>
                 @yield('content')
             </main>
+
+            <footer class="footer">
+                <p>&copy; 2026 Grade Dispute System. All rights reserved.</p>
+            </footer>
         </div>
     </div>
 

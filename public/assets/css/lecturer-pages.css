@@ -1,0 +1,226 @@
+.badge-pending {
+    color: var(--status-pending);
+}
+
+.badge-review {
+    color: var(--status-review);
+}
+
+.badge-escalated {
+    color: var(--status-escalated);
+}
+
+.badge-resolved {
+    color: var(--status-resolved);
+}
+
+.badge-rejected {
+    color: var(--status-rejected);
+}
+
+.badge-low {
+    color: var(--status-info);
+}
+
+.badge-medium {
+    color: var(--status-warning);
+}
+
+.badge-high {
+    color: var(--status-danger);
+}
+
+.badge-critical {
+    color: var(--status-danger);
+    text-decoration: underline;
+}
+
+.dashboard-title {
+    margin-bottom: 32px;
+}
+
+.dashboard-title h1 {
+    margin-bottom: 4px;
+    color: var(--color-text-primary);
+    font-size: 1.8rem;
+}
+
+.breadcrumb {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.stats-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.stat-icon {
+    display: block;
+    margin-bottom: 12px;
+    color: var(--color-text-muted);
+    font-size: 28px;
+}
+
+.table-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 40px;
+    margin-bottom: 16px;
+}
+
+.table-section-header h2 {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
+}
+
+.lecturer-filter-menu {
+    min-width: 220px;
+    padding: 16px;
+    border: 1px solid var(--color-border-divider);
+    border-radius: var(--radius-md);
+}
+
+.lecturer-filter-menu label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.course-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    background: var(--color-bg-navbar);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-speed) ease;
+}
+
+.filter-btn:hover {
+    background: var(--color-bg-hover);
+}
+
+.filter-btn.active {
+    background: var(--color-text-secondary);
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-white);
+}
+
+.guidelines-card {
+    margin-top: 32px;
+    padding: 24px;
+    background: var(--color-bg-navbar);
+    border: 1px solid var(--color-border-divider);
+    border-radius: var(--radius-md);
+}
+
+.guidelines-card h4 {
+    margin-bottom: 12px;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.guidelines-card ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.guidelines-card li {
+    margin-bottom: 6px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.guidelines-card li:last-child {
+    margin-bottom: 0;
+}
+
+.lecturer-controls {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.expanded-search {
+    flex: 1;
+    max-width: 500px;
+}
+
+.control-actions {
+    display: flex;
+    gap: 16px;
+}
+
+.stacked-text .primary-text {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-regular);
+}
+
+.stacked-text .sub-text {
+    margin-top: 2px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.table-footer-stats {
+    padding: 16px 20px;
+    background: var(--color-bg-card);
+    border-top: 1px solid var(--color-border-divider);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.btn-neutral-dark {
+    background: var(--status-closed);
+}
+
+.btn-neutral-dark:hover {
+    background: #1f2937;
+}
+
+@media (max-width: 1024px) {
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .expanded-search {
+        max-width: 100%;
+    }
+
+    .control-actions {
+        width: 100%;
+    }
+
+    .control-actions .status-filter {
+        flex: 1;
+    }
+}
+
+@media (max-width: 600px) {
+    .stats-grid-4 {
+        grid-template-columns: 1fr;
+    }
+
+    .table-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+}

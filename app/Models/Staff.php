@@ -17,6 +17,7 @@ class Staff extends Model
         'staff_id',
         'first_name',
         'last_name',
+        'salutation',
         'full_name',
         'role',
         'department',

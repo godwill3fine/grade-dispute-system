@@ -2,55 +2,73 @@
     $role = auth()->user()->role ?? '';
     $menus = [
         'student' => [
-            ['route' => 'portal.student.dashboard', 'match' => 'portal.student.dashboard', 'label' => 'Dashboard', 'icon' => 'bi-speedometer2'],
-            ['route' => 'portal.student.submit', 'match' => 'portal.student.submit', 'label' => 'Submit Dispute', 'icon' => 'bi-file-earmark-plus'],
-            ['route' => 'portal.student.tickets', 'match' => ['portal.student.tickets', 'portal.student.disputes', 'portal.student.dispute.detail'], 'label' => 'Tickets', 'icon' => 'bi-ticket-detailed'],
-            ['route' => 'portal.student.notifications', 'match' => 'portal.student.notifications', 'label' => 'Notifications', 'icon' => 'bi-bell'],
+            ['route' => 'portal.student.dashboard', 'match' => 'portal.student.dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard'],
+            ['route' => 'portal.student.submit', 'match' => 'portal.student.submit', 'label' => 'Submit Ticket', 'icon' => 'add_box'],
+            ['route' => 'portal.student.tickets', 'match' => ['portal.student.tickets', 'portal.student.disputes', 'portal.student.dispute.detail'], 'label' => 'My Tickets', 'icon' => 'list_alt'],
+            ['route' => 'portal.student.notifications', 'match' => 'portal.student.notifications', 'label' => 'Notifications', 'icon' => 'mark_email_unread'],
         ],
         'lecturer' => [
-            ['route' => 'portal.lecturer.dashboard', 'match' => 'portal.lecturer.dashboard', 'label' => 'Dashboard', 'icon' => 'bi-speedometer2'],
-            ['route' => 'portal.lecturer.disputes', 'match' => 'portal.lecturer.disputes*', 'label' => 'Assigned Disputes', 'icon' => 'bi-clipboard2-check'],
+            ['route' => 'portal.lecturer.dashboard', 'match' => 'portal.lecturer.dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard'],
+            ['route' => 'portal.lecturer.disputes', 'match' => 'portal.lecturer.disputes*', 'label' => 'Assigned Tickets', 'icon' => 'list'],
+            ['route' => 'portal.lecturer.history', 'match' => 'portal.lecturer.history', 'label' => 'Review History', 'icon' => 'history'],
         ],
         'admin' => [
-            ['route' => 'portal.admin.dashboard', 'match' => 'portal.admin.dashboard', 'label' => 'Dashboard', 'icon' => 'bi-grid-1x2-fill'],
-            ['route' => 'portal.admin.disputes', 'match' => 'portal.admin.disputes', 'label' => 'Disputes', 'icon' => 'bi-kanban-fill'],
-            ['route' => 'portal.admin.reports', 'match' => 'portal.admin.reports', 'label' => 'Reports', 'icon' => 'bi-bar-chart-line-fill'],
-            ['route' => 'portal.admin.settings', 'match' => 'portal.admin.settings', 'label' => 'Settings', 'icon' => 'bi-sliders'],
-            ['route' => 'portal.admin.activity', 'match' => 'portal.admin.activity', 'label' => 'Activity', 'icon' => 'bi-clock-history'],
+            ['route' => 'portal.admin.dashboard', 'match' => 'portal.admin.dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard'],
+            ['route' => 'portal.admin.disputes', 'match' => 'portal.admin.disputes', 'label' => 'Manage Tickets', 'icon' => 'list'],
+            ['route' => 'portal.admin.users', 'match' => 'portal.admin.users', 'label' => 'Manage Users', 'icon' => 'group'],
+            ['route' => 'portal.admin.escalations', 'match' => 'portal.admin.escalations', 'label' => 'Escalations', 'icon' => 'warning'],
+            ['route' => 'portal.admin.reports', 'match' => 'portal.admin.reports', 'label' => 'Reports', 'icon' => 'bar_chart'],
+            ['route' => 'portal.admin.settings', 'match' => 'portal.admin.settings', 'label' => 'System Settings', 'icon' => 'settings'],
+            ['route' => 'portal.admin.activity', 'match' => 'portal.admin.activity', 'label' => 'Recent Activity', 'icon' => 'schedule'],
         ],
     ];
+    $portalTitle = match ($role) {
+        'student' => 'Student Portal',
+        'lecturer' => 'Lecturer Portal',
+        'admin' => 'Admin Portal',
+        default => 'Portal',
+    };
+    $profileIdentifier = auth()->user()->identifier ?? 'ID unavailable';
 @endphp
 
-<aside class="gd-sidebar shadow-sm">
-    <div class="gd-brand p-3 border-bottom">
-        <div class="d-flex align-items-center gap-2">
-            <span class="brand-mark"><i class="bi bi-mortarboard-fill"></i></span>
-            <div>
-                <h1 class="h6 mb-0">Grade Dispute</h1>
-                <small class="text-muted text-uppercase">{{ $role }}</small>
-            </div>
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <span class="material-symbols-outlined">automation</span>
+            <span class="text"><h3>{{ $portalTitle }}</h3></span>
         </div>
+        <span class="material-symbols-outlined" id="toggle-sidebar">menu</span>
     </div>
 
-    <nav class="p-2">
+    <ul class="menu">
+        <div class="menu-title">
+            <span class="text"><h3>Menu</h3></span>
+        </div>
         @foreach ($menus[$role] ?? [] as $item)
             @php
                 $matchPatterns = is_array($item['match']) ? $item['match'] : [$item['match']];
                 $isActive = request()->routeIs(...$matchPatterns);
             @endphp
-            <a class="gd-nav-link {{ $isActive ? 'active' : '' }}" href="{{ route($item['route']) }}">
-                <i class="bi {{ $item['icon'] }}"></i>
-                <span>{{ $item['label'] }}</span>
-            </a>
+            <li class="{{ $isActive ? 'active' : '' }}">
+                <a href="{{ route($item['route']) }}" class="menu-link">
+                    <span class="material-symbols-outlined">{{ $item['icon'] }}</span>
+                    <span class="text">{{ $item['label'] }}</span>
+                </a>
+            </li>
         @endforeach
-    </nav>
 
-    <div class="mt-auto p-3 border-top">
-        <form method="POST" action="{{ route('portal.logout') }}">
-            @csrf
-            <button type="submit" class="btn btn-outline-danger w-100">
-                <i class="bi bi-box-arrow-right me-2"></i>Logout
-            </button>
-        </form>
-    </div>
+        <li id="profile">
+            <div class="profile-info">
+                <span class="material-symbols-outlined">account_circle</span>
+                <span class="text">
+                    <h2>{{ auth()->user()->name }}</h2>
+                    <h3>{{ $profileIdentifier }}</h3>
+                </span>
+            </div>
+            <form method="POST" action="{{ route('portal.logout') }}" class="sidebar-logout-form">
+                @csrf
+                <button type="submit" class="logout material-symbols-outlined" aria-label="Logout">logout</button>
+            </form>
+        </li>
+    </ul>
 </aside>

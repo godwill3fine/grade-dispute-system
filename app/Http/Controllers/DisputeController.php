@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Attachment;
 use App\Models\Dispute;
 use App\Models\DisputeLog;
+use App\Models\Lecturer;
 use App\Models\Staff;
 use App\Models\Unit;
 use App\Models\UnitLecturer;
+use App\Models\User;
 use App\Services\ActivityLogService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
@@ -284,12 +286,18 @@ class DisputeController extends Controller
 
     public function adminDashboard()
     {
+        $averageResolution = Dispute::where('status', 'resolved')
+            ->selectRaw('AVG(DATEDIFF(COALESCE(resolved_at, updated_at), created_at)) as avg_days')
+            ->value('avg_days');
+
         return response()->json([
             'total_disputes' => Dispute::count(),
+            'average_resolution_time' => number_format((float) ($averageResolution ?? 0), 1).' days',
             'pending' => Dispute::where('status', 'pending')->count(),
             'under_review' => Dispute::where('status', 'under_review')->count(),
             'resolved' => Dispute::where('status', 'resolved')->count(),
             'escalated' => Dispute::where('status', 'escalated')->count(),
+            'active_users' => User::where('status', 'active')->count(),
         ]);
     }
 
@@ -304,6 +312,62 @@ class DisputeController extends Controller
             ->orWhere('status', 'escalated_admin')
             ->get();
 
+        $identifiers = $disputes
+            ->pluck('assigned_to')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim($value))
+            ->unique()
+            ->values();
+        $unitCodes = $disputes
+            ->pluck('unit_code')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim($value))
+            ->unique()
+            ->values();
+
+        $userNames = User::query()
+            ->whereIn('identifier', $identifiers)
+            ->pluck('name', 'identifier');
+
+        $lecturerNames = Lecturer::query()
+            ->whereIn('lecturer_id', $identifiers)
+            ->get()
+            ->mapWithKeys(function (Lecturer $lecturer) {
+                return [$lecturer->lecturer_id => $lecturer->formal_name];
+            });
+
+        $unitLecturerNames = UnitLecturer::query()
+            ->with('lecturer')
+            ->whereIn('unit_code', $unitCodes)
+            ->orderBy('unit_code')
+            ->get()
+            ->groupBy('unit_code')
+            ->map(function ($mappings) {
+                $first = $mappings->first();
+                $lecturer = $first?->lecturer;
+
+                return $lecturer?->formal_name ?: null;
+            });
+
+        $staffNames = Staff::query()
+            ->whereIn('staff_id', $identifiers)
+            ->get()
+            ->mapWithKeys(function (Staff $staff) {
+                return [$staff->staff_id => $staff->formal_name];
+            });
+
+        $payload = $disputes->map(function (Dispute $dispute) use ($lecturerNames, $unitLecturerNames, $userNames, $staffNames) {
+            $assignedTo = trim((string) ($dispute->assigned_to ?? ''));
+            $assignedName = $lecturerNames[$assignedTo] ?? $userNames[$assignedTo] ?? $staffNames[$assignedTo] ?? null;
+            $unitCode = trim((string) ($dispute->unit_code ?? ''));
+            $assignedLecturerName = $unitLecturerNames[$unitCode] ?? $assignedName;
+
+            return array_merge($dispute->toArray(), [
+                'assigned_name' => $assignedName ?: ($assignedTo !== '' ? $assignedTo : 'Unassigned'),
+                'assigned_lecturer_name' => $assignedLecturerName ?: ($assignedTo !== '' ? $assignedTo : 'Unassigned'),
+            ]);
+        })->values()->all();
+
         ActivityLogService::log(
             null,
             'Viewed Escalated Disputes',
@@ -312,7 +376,7 @@ class DisputeController extends Controller
             'Admin viewed escalated disputes list'
         );
 
-        return response()->json($disputes);
+        return response()->json($payload);
     }
 
     public function disputesPerUnit()
@@ -322,7 +386,11 @@ class DisputeController extends Controller
             ->select(
                 'disputes.unit_code',
                 'units.unit_name',
-                DB::raw('COUNT(*) as total')
+                DB::raw('COUNT(*) as total'),
+                DB::raw("SUM(CASE WHEN disputes.status = 'pending' THEN 1 ELSE 0 END) as pending"),
+                DB::raw("SUM(CASE WHEN disputes.status = 'under_review' THEN 1 ELSE 0 END) as under_review"),
+                DB::raw("SUM(CASE WHEN disputes.status = 'resolved' THEN 1 ELSE 0 END) as resolved"),
+                DB::raw("SUM(CASE WHEN disputes.status IN ('escalated', 'escalated_admin') THEN 1 ELSE 0 END) as escalated")
             )
             ->whereNotNull('disputes.unit_code')
             ->groupBy('disputes.unit_code', 'units.unit_name')
@@ -335,9 +403,20 @@ class DisputeController extends Controller
     public function disputesPerLecturer()
     {
         $data = DB::table('disputes')
-            ->select('assigned_to', DB::raw('COUNT(*) as total'))
+            ->leftJoin('lecturers', 'disputes.assigned_to', '=', 'lecturers.lecturer_id')
+            ->select(
+                'disputes.assigned_to',
+                'lecturers.salutation',
+                'lecturers.last_name',
+                'lecturers.first_name',
+                DB::raw('COUNT(*) as total'),
+                DB::raw("SUM(CASE WHEN disputes.status = 'pending' THEN 1 ELSE 0 END) as pending"),
+                DB::raw("SUM(CASE WHEN disputes.status = 'under_review' THEN 1 ELSE 0 END) as under_review"),
+                DB::raw("SUM(CASE WHEN disputes.status = 'resolved' THEN 1 ELSE 0 END) as resolved")
+            )
             ->where('assigned_role', 'lecturer')
-            ->groupBy('assigned_to')
+            ->groupBy('disputes.assigned_to', 'lecturers.salutation', 'lecturers.last_name', 'lecturers.first_name')
+            ->orderByDesc('total')
             ->get();
 
         return response()->json($data);
