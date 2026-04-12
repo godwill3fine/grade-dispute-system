@@ -97,7 +97,8 @@ class EscalateDisputesCommandTest extends TestCase
     {
         Student::create([
             'reg_number' => 'S001',
-            'full_name' => 'Test Student',
+            'first_name' => 'Test',
+            'last_name' => 'Student',
             'course' => 'BSc CS',
             'year' => 2,
         ]);
@@ -108,7 +109,8 @@ class EscalateDisputesCommandTest extends TestCase
         DB::table('staff')->insert([
             [
                 'staff_id' => 'H001',
-                'full_name' => 'Head of Department',
+                'first_name' => 'Head',
+                'last_name' => 'of Department',
                 'role' => 'hod',
                 'department' => 'Computing',
                 'created_at' => now(),
@@ -116,7 +118,8 @@ class EscalateDisputesCommandTest extends TestCase
             ],
             [
                 'staff_id' => 'A001',
-                'full_name' => 'System Admin',
+                'first_name' => 'System',
+                'last_name' => 'Admin',
                 'role' => 'admin',
                 'department' => 'Computing',
                 'created_at' => now(),

@@ -22,7 +22,7 @@ class AuthController extends Controller
             }
 
             return [
-                'name' => $student->full_name,
+                'name' => $student->display_name,
                 'email' => strtolower($student->reg_number).'@grade-dispute.local',
             ];
         }
@@ -34,7 +34,7 @@ class AuthController extends Controller
             }
 
             return [
-                'name' => $lecturer->full_name,
+                'name' => $lecturer->display_name,
                 'email' => strtolower($lecturer->lecturer_id).'@grade-dispute.local',
             ];
         }
@@ -46,7 +46,7 @@ class AuthController extends Controller
             }
 
             return [
-                'name' => $staff->full_name,
+                'name' => $staff->display_name,
                 'email' => strtolower($staff->staff_id).'@grade-dispute.local',
             ];
         }
