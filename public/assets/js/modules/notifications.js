@@ -1,6 +1,10 @@
 import { apiGet, apiPost } from './api.js';
 import { escapeHtml, formatDate, getCurrentUser, showToast } from './dom.js';
 
+function encodeRouteParam(value) {
+    return encodeURIComponent(String(value ?? '').trim());
+}
+
 function renderNotifications(items) {
     const list = document.querySelector('[data-notification-list]');
     const badge = document.querySelector('[data-notification-count]');
@@ -70,7 +74,7 @@ function registerNotificationClicks() {
 
             const user = getCurrentUser();
             if (user?.identifier) {
-                const data = await apiGet(`/notifications/${user.identifier}`);
+                const data = await apiGet(`/notifications/${encodeRouteParam(user.identifier)}`);
                 renderNotifications(data);
             }
         } catch {
@@ -86,7 +90,7 @@ export async function initNotifications() {
     }
 
     try {
-        const data = await apiGet(`/notifications/${user.identifier}`);
+        const data = await apiGet(`/notifications/${encodeRouteParam(user.identifier)}`);
         renderNotifications(data);
         registerNotificationClicks();
     } catch {

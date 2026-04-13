@@ -5,6 +5,7 @@
 @section('page_title', 'Submit Dispute')
 
 @section('content')
+@php($resolvedStudentCourse = trim((string) ($studentCourse ?? '')))
 <div class="page-header">
     <span class="eyebrow">NEW TICKET</span>
     <h1>Submit A Grade Dispute</h1>
@@ -39,8 +40,14 @@
                     <datalist id="unitCodeList"></datalist>
                 </div>
                 <div class="form-group">
-                    <label for="studentCourseInput">Course</label>
-                    <input class="form-control" name="course" id="studentCourseInput" placeholder="BSc CS">
+                    <label for="studentCourseDisplay">Course</label>
+                    <input
+                        class="form-control"
+                        id="studentCourseDisplay"
+                        value="{{ $resolvedStudentCourse !== '' ? $resolvedStudentCourse : 'Not set on your profile' }}"
+                        disabled
+                    >
+                    <span class="form-text">This is pulled from the logged-in student profile for reference and cannot be changed here.</span>
                 </div>
             </div>
         </div>

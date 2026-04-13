@@ -8,7 +8,7 @@
     <div class="login-header">
         <span class="material-symbols-outlined brand-icon">password</span>
         <h2>Create New Password</h2>
-        <p>Set a new password for <strong>{{ $identifier }}</strong>.</p>
+        <p>Set a new password for University ID <strong>{{ $identifier }}</strong>.</p>
     </div>
 
     @if (session('auth_error'))

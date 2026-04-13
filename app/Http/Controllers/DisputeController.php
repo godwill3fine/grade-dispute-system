@@ -7,6 +7,7 @@ use App\Models\Dispute;
 use App\Models\DisputeLog;
 use App\Models\Lecturer;
 use App\Models\Staff;
+use App\Models\Student;
 use App\Models\Unit;
 use App\Models\UnitLecturer;
 use App\Models\User;
@@ -55,21 +56,42 @@ class DisputeController extends Controller
             return response()->json(['error' => 'Access denied'], 403);
         }
 
+        $student = Student::find($request->student_id);
+        if (! $student) {
+            return response()->json(['error' => 'Student not found'], 404);
+        }
+
         if ($request->type === 'unit') {
             $request->validate([
                 'unit_code' => 'required|string|exists:units,unit_code',
-                'course' => 'required|string|max:255',
             ]);
 
-            $mapping = UnitLecturer::where('unit_code', $request->unit_code)
-                ->where('course', $request->course)
-                ->first();
+            $mappings = UnitLecturer::where('unit_code', $request->unit_code)
+                ->orderBy('id')
+                ->get();
 
-            if (! $mapping) {
+            if ($mappings->isEmpty()) {
                 return response()->json(['error' => 'No lecturer assigned to this unit'], 404);
             }
 
-            $assignedTo = $mapping->lecturer_id;
+            $lecturerIds = $mappings
+                ->pluck('lecturer_id')
+                ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+                ->map(fn ($value) => trim((string) $value))
+                ->unique()
+                ->values();
+
+            if ($lecturerIds->isEmpty()) {
+                return response()->json(['error' => 'No lecturer assigned to this unit'], 404);
+            }
+
+            if ($lecturerIds->count() > 1) {
+                return response()->json([
+                    'error' => 'Multiple lecturers are assigned to this unit. Please ask admin to keep one active lecturer per unit until year-based routing is added.',
+                ], 409);
+            }
+
+            $assignedTo = $lecturerIds->first();
             $assignedRole = 'lecturer';
         } else {
             $request->validate([
@@ -144,7 +166,7 @@ class DisputeController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return response()->json($disputes);
+        return response()->json($this->decorateDisputes($disputes)->all());
     }
 
     public function updateStatus(Request $request)
@@ -272,7 +294,7 @@ class DisputeController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return response()->json($disputes);
+        return response()->json($this->decorateDisputes($disputes)->all());
     }
 
     public function disputeLogs($dispute_id)
@@ -303,7 +325,11 @@ class DisputeController extends Controller
 
     public function allDisputes()
     {
-        return Dispute::orderBy('created_at', 'desc')->get();
+        return response()->json(
+            $this->decorateDisputes(
+                Dispute::orderBy('created_at', 'desc')->get()
+            )->all()
+        );
     }
 
     public function escalatedDisputes()
@@ -653,5 +679,43 @@ class DisputeController extends Controller
         }
 
         return trim($role);
+    }
+
+    private function decorateDisputes($disputes)
+    {
+        $studentIds = $disputes
+            ->pluck('student_id')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->values();
+
+        $unitCodes = $disputes
+            ->pluck('unit_code')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->values();
+
+        $students = Student::query()
+            ->whereIn('reg_number', $studentIds)
+            ->get()
+            ->keyBy('reg_number');
+
+        $units = Unit::query()
+            ->whereIn('unit_code', $unitCodes)
+            ->get()
+            ->keyBy('unit_code');
+
+        return $disputes->map(function (Dispute $dispute) use ($students, $units) {
+            $student = $students->get(trim((string) $dispute->student_id));
+            $unit = $units->get(trim((string) ($dispute->unit_code ?? '')));
+
+            return array_merge($dispute->toArray(), [
+                'student_name' => trim((string) ($student?->display_name ?? '')),
+                'student_course' => trim((string) ($student?->course ?? '')),
+                'unit_name' => trim((string) ($unit?->unit_name ?? '')),
+            ]);
+        });
     }
 }

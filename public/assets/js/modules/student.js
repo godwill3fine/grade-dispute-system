@@ -16,6 +16,10 @@ let studentDisputeCache = [];
 let unitLookupTimer = null;
 let studentNotificationCache = [];
 
+function encodeRouteParam(value) {
+    return encodeURIComponent(String(value ?? '').trim());
+}
+
 function getStudentIdentifier() {
     const user = getCurrentUser();
     return user?.identifier ?? '';
@@ -27,7 +31,7 @@ async function fetchStudentDisputes() {
         return [];
     }
 
-    const data = await apiGet(`/student/disputes/${identifier}`);
+    const data = await apiGet(`/student/disputes/${encodeRouteParam(identifier)}`);
     return Array.isArray(data) ? data : [];
 }
 
@@ -243,7 +247,6 @@ async function submitStudentDisputeForm(event) {
         formData.delete('assigned_role');
     } else {
         formData.delete('unit_code');
-        formData.delete('course');
     }
 
     try {
@@ -379,7 +382,7 @@ async function fetchStudentNotifications() {
         return [];
     }
 
-    const data = await apiGet(`/notifications/${identifier}`);
+    const data = await apiGet(`/notifications/${encodeRouteParam(identifier)}`);
     return Array.isArray(data) ? data : [];
 }
 
@@ -511,7 +514,7 @@ export async function initStudentDisputeDetail() {
     }
 
     try {
-        const allDisputes = await apiGet(`/student/disputes/${identifier}`);
+        const allDisputes = await apiGet(`/student/disputes/${encodeRouteParam(identifier)}`);
         const dispute = Array.isArray(allDisputes)
             ? allDisputes.find((item) => Number(item.id) === id)
             : null;

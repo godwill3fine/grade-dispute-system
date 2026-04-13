@@ -203,7 +203,7 @@ class AuthController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Identifier confirmed.',
+            'message' => 'University ID confirmed.',
             'next' => route('portal.password.forgot.email'),
         ]);
     }

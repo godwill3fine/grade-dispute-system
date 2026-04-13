@@ -8,7 +8,7 @@
     <div class="login-header">
         <span class="material-symbols-outlined brand-icon">alternate_email</span>
         <h2>Verify Your Email</h2>
-        <p>Enter the email address linked to <strong>{{ $identifier }}</strong>.</p>
+        <p>Enter the email address linked to University ID <strong>{{ $identifier }}</strong>.</p>
     </div>
 
     @if (session('auth_error'))
@@ -29,7 +29,7 @@
     </form>
 
     <div class="login-footer">
-        <p>Need a different ID? <a href="{{ route('portal.password.forgot') }}" class="signup-link">Start over</a></p>
+        <p>Need a different University ID? <a href="{{ route('portal.password.forgot') }}" class="signup-link">Start over</a></p>
     </div>
 </section>
 @endsection

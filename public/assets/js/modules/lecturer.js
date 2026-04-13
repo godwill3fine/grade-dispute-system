@@ -18,6 +18,10 @@ let lecturerDashboardCourseFilter = 'all';
 const ACTIVE_LECTURER_STATUSES = ['pending', 'under_review'];
 const LECTURER_HISTORY_STATUSES = ['resolved', 'rejected', 'escalated', 'closed'];
 
+function encodeRouteParam(value) {
+    return encodeURIComponent(String(value ?? '').trim());
+}
+
 function lecturerIdentifier() {
     return getCurrentUser()?.identifier ?? '';
 }
@@ -28,7 +32,7 @@ async function fetchLecturerDisputes() {
         return [];
     }
 
-    const data = await apiGet(`/lecturer/disputes/${identifier}`);
+    const data = await apiGet(`/lecturer/disputes/${encodeRouteParam(identifier)}`);
     return Array.isArray(data) ? data : [];
 }
 
@@ -39,12 +43,12 @@ function humanizeText(value) {
 }
 
 function lecturerCourseCode(item) {
-    const unitCode = String(item?.unit_code ?? '').trim();
-    return unitCode === '' ? 'general' : unitCode;
+    const studentCourse = String(item?.student_course ?? '').trim();
+    return studentCourse === '' ? 'profile-missing' : studentCourse;
 }
 
 function lecturerCourseLabel(courseCode) {
-    return courseCode === 'general' ? 'General' : courseCode;
+    return courseCode === 'profile-missing' ? 'Profile Missing' : courseCode;
 }
 
 function activeLecturerDisputes(items) {
@@ -73,6 +77,8 @@ function filterByQuery(items, query) {
         return [
             item.ticket_number,
             item.student_id,
+            item.student_name,
+            item.student_course,
             item.title,
             item.unit_code,
             item.status,
@@ -385,7 +391,10 @@ function renderOverview(dispute, targetId) {
     el.innerHTML = `
         <div class="overview-grid">
             <div class="overview-label">Ticket</div><div class="overview-value">${escapeHtml(dispute.ticket_number ?? '-')}</div>
-            <div class="overview-label">Student</div><div class="overview-value">${escapeHtml(dispute.student_id ?? '-')}</div>
+            <div class="overview-label">Student</div><div class="overview-value">${escapeHtml(dispute.student_name || dispute.student_id || '-')}</div>
+            <div class="overview-label">Registration No.</div><div class="overview-value">${escapeHtml(dispute.student_id ?? '-')}</div>
+            <div class="overview-label">Course</div><div class="overview-value">${escapeHtml(lecturerCourseLabel(lecturerCourseCode(dispute)))}</div>
+            <div class="overview-label">Unit</div><div class="overview-value">${escapeHtml(dispute.unit_name ? `${dispute.unit_code ?? ''} - ${dispute.unit_name}` : (dispute.unit_code ?? '-'))}</div>
             <div class="overview-label">Status</div><div class="overview-value">${statusBadge(dispute.status)}</div>
             <div class="overview-label">Priority</div><div class="overview-value">${priorityBadge(dispute.priority)}</div>
             <div class="overview-label">Title</div><div class="overview-value">${escapeHtml(dispute.title ?? '-')}</div>
@@ -544,7 +553,7 @@ export async function initLecturerDashboard() {
         const identifier = lecturerIdentifier();
         const [disputes, alerts] = await Promise.all([
             fetchLecturerDisputes(),
-            apiGet(`/lecturer/alerts/${identifier}`),
+            apiGet(`/lecturer/alerts/${encodeRouteParam(identifier)}`),
         ]);
 
         renderLecturerMetrics(disputes, alerts);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
+use App\Models\Student;
 use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class FrontendController extends Controller
         if ($identifier === '' || $role === '') {
             return redirect()
                 ->route('portal.signup')
-                ->with('auth_error', 'Start sign up by entering your identifier first.');
+                ->with('auth_error', 'Start sign up by entering your University ID first.');
         }
 
         return view('auth.signup-password', [
@@ -149,7 +150,11 @@ class FrontendController extends Controller
     {
         $this->ensureRole('student');
 
-        return view('student.submit-dispute');
+        $student = Student::find(Auth::user()?->identifier);
+
+        return view('student.submit-dispute', [
+            'studentCourse' => trim((string) ($student?->course ?? '')),
+        ]);
     }
 
     public function studentTickets(): View

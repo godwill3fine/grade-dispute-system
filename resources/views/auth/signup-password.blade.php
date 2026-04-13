@@ -8,7 +8,7 @@
     <div class="login-header">
         <span class="material-symbols-outlined brand-icon">password</span>
         <h2>Set Your Password</h2>
-        <p>Create a password for identifier <strong>{{ $identifier }}</strong>.</p>
+        <p>Create a password for University ID <strong>{{ $identifier }}</strong>.</p>
     </div>
 
     <form id="signupPasswordForm">
@@ -16,7 +16,7 @@
         <input type="hidden" name="role" id="signupPasswordRole" value="{{ $role }}">
 
         <div class="form-group">
-            <label>Identifier</label>
+            <label>University ID</label>
             <div class="input-icon-wrapper">
                 <span class="material-symbols-outlined input-icon">badge</span>
                 <input class="form-control" value="{{ $identifier }}" readonly>
@@ -44,7 +44,7 @@
     </form>
 
     <div class="login-footer">
-        <p>Need to change identifier? <a href="{{ route('portal.signup') }}" class="signup-link">Go back</a></p>
+        <p>Need to change University ID? <a href="{{ route('portal.signup') }}" class="signup-link">Go back</a></p>
     </div>
 </section>
 @endsection

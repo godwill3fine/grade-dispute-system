@@ -58,15 +58,18 @@ Route::get('/units/search', [DisputeController::class, 'searchUnits']);
 Route::middleware(['role:student'])->group(function () {
     Route::post('/disputes', [DisputeController::class, 'store']);
     Route::post('/dispute/store', [DisputeController::class, 'store']);
-    Route::get('/student/disputes/{student_id}', [DisputeController::class, 'studentDisputes']);
+    Route::get('/student/disputes/{student_id}', [DisputeController::class, 'studentDisputes'])
+        ->where('student_id', '.*');
 });
 
 Route::middleware(['role:lecturer,admin'])->group(function () {
-    Route::get('/lecturer/disputes/{lecturer_id}', [DisputeController::class, 'lecturerDisputes']);
+    Route::get('/lecturer/disputes/{lecturer_id}', [DisputeController::class, 'lecturerDisputes'])
+        ->where('lecturer_id', '.*');
     Route::post('/dispute/respond', [DisputeController::class, 'respond']);
     Route::post('/dispute/status', [DisputeController::class, 'updateStatus']);
     Route::post('/dispute/update-status', [DisputeController::class, 'updateStatus']);
-    Route::get('/lecturer/alerts/{lecturer_id}', [DisputeController::class, 'lecturerAlerts']);
+    Route::get('/lecturer/alerts/{lecturer_id}', [DisputeController::class, 'lecturerAlerts'])
+        ->where('lecturer_id', '.*');
 });
 
 Route::middleware(['role:student,lecturer,admin'])->group(function () {
@@ -75,8 +78,9 @@ Route::middleware(['role:student,lecturer,admin'])->group(function () {
     Route::get('/dispute/attachments/{id}', [DisputeController::class, 'disputeAttachments']);
     Route::get('/attachment/download/{id}', [DisputeController::class, 'downloadAttachment']);
 
-    Route::get('/notifications/{userId}', [NotificationController::class, 'userNotifications']);
     Route::post('/notifications/read/{id}', [NotificationController::class, 'markAsRead']);
+    Route::get('/notifications/{userId}', [NotificationController::class, 'userNotifications'])
+        ->where('userId', '.*');
 });
 
 Route::middleware(['role:admin'])->group(function () {

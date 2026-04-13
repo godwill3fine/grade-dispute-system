@@ -8,7 +8,7 @@
     <div class="login-header">
         <span class="material-symbols-outlined brand-icon">person_add</span>
         <h2>Create Your Account</h2>
-        <p>Enter your identifier to begin sign up.</p>
+        <p>Enter your University ID to begin sign up.</p>
     </div>
 
     <form id="signupIdentifyForm">

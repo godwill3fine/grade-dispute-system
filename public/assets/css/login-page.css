@@ -97,6 +97,37 @@ body[data-page="auth-login"] .login-card .form-group.form-group-compact {
     margin-bottom: 0;
 }
 
+body[data-page="auth-signup-password"] .login-card form {
+    gap: 10px;
+}
+
+body[data-page="auth-signup-password"] .login-card .form-group,
+body[data-page="auth-signup-password"] .login-card .form-group.form-group-compact {
+    margin-bottom: 0;
+}
+
+body[data-page="auth-signup-password"] .login-card .form-group label {
+    margin-bottom: 6px;
+}
+
+body[data-page="auth-signup-password"] .btn-login {
+    margin-top: 27px;
+    margin-bottom: 0;
+}
+
+body[data-page="auth-signup-password"] #signupPasswordFeedback {
+    min-height: 0;
+    margin-top: 0;
+}
+
+body[data-page="auth-signup-password"] #signupPasswordFeedback:empty {
+    display: none;
+}
+
+body[data-page="auth-signup-password"] .login-footer {
+    margin-top: 27px;
+}
+
 body[data-page="auth-login"] .form-options-row {
     margin-bottom: 6px;
 }

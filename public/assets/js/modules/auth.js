@@ -53,7 +53,7 @@ async function handleSignupIdentifier(event) {
     const identifier = String(formData.get('identifier') ?? '').trim();
 
     if (!identifier) {
-        feedbackText('#signupIdentifyFeedback', 'Identifier is required.');
+        feedbackText('#signupIdentifyFeedback', 'University ID is required.');
         return;
     }
 
@@ -71,9 +71,9 @@ async function handleSignupIdentifier(event) {
             return;
         }
 
-        feedbackText('#signupIdentifyFeedback', 'Unable to continue sign up for this identifier.');
+        feedbackText('#signupIdentifyFeedback', 'Unable to continue sign up for this University ID.');
     } catch (error) {
-        feedbackText('#signupIdentifyFeedback', error.message ?? 'Identifier not found.');
+        feedbackText('#signupIdentifyFeedback', error.message ?? 'University ID not found.');
     }
 }
 
@@ -104,7 +104,7 @@ async function handleForgotPassword(event) {
 
     try {
         const data = await apiPost('/forgot-password/identify', payload);
-        feedbackText('#forgotPasswordIdentifyFeedback', 'Identifier confirmed. Redirecting...', true);
+        feedbackText('#forgotPasswordIdentifyFeedback', 'University ID confirmed. Redirecting...', true);
 
         window.setTimeout(() => {
             window.location.assign(data.next ?? '/portal/password/forgot/email');
