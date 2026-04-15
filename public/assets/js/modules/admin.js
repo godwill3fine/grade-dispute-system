@@ -579,7 +579,7 @@ function renderAdminDisputesRows(rows) {
                     <td>${statusBadgeClassic(item.status)}</td>
                     <td>${escapeHtml(formatDateOnly(item.created_at))}</td>
                     <td>
-                        <button class="btn btn-outline btn-sm admin-manage-ticket-btn" data-ticket-id="${escapeHtml(item.ticket_number ?? '')}" type="button">
+                        <button class="btn btn-outline btn-sm admin-manage-ticket-btn" data-dispute-id="${escapeHtml(item.id ?? '')}" data-ticket-id="${escapeHtml(item.ticket_number ?? '')}" type="button">
                             Manage
                         </button>
                     </td>
@@ -725,7 +725,7 @@ function renderAdminEscalationRows(rows) {
                         </div>
                     </td>
                     <td>
-                        <a class="btn btn-dark" href="/portal/admin/disputes">
+                        <a class="btn btn-dark" href="/portal/admin/disputes/${encodeURIComponent(item.id ?? '')}">
                             Review <span class="material-symbols-outlined icon-xs">chevron_right</span>
                         </a>
                     </td>
@@ -1235,8 +1235,14 @@ export async function initAdminDisputes() {
             return;
         }
 
+        const disputeId = String(trigger.dataset.disputeId ?? '').trim();
         const ticketNumber = trigger.dataset.ticketId ?? 'this ticket';
-        showToast(`Detailed management for ${ticketNumber} will be added next.`, 'primary');
+        if (disputeId !== '') {
+            window.location.href = `/portal/admin/disputes/${encodeURIComponent(disputeId)}`;
+            return;
+        }
+
+        showToast(`Unable to open ${ticketNumber}.`, 'warning');
     });
 
     try {
@@ -1481,14 +1487,19 @@ export async function initAdminUsers() {
     });
 
     addBtn?.addEventListener('click', () => {
-        showToast('User creation will be added in the next pass.', 'primary');
+        window.location.href = '/portal/admin/users/create';
     });
 
     tableBody?.addEventListener('click', (event) => {
         const editTrigger = event.target.closest('.admin-user-edit-btn');
         if (editTrigger) {
             const identifier = editTrigger.dataset.userId ?? 'this user';
-            showToast(`Editing for ${identifier} will be added next.`, 'primary');
+            if (identifier) {
+                window.location.href = `/portal/admin/users/${encodeURIComponent(identifier)}/edit`;
+                return;
+            }
+
+            showToast('Unable to determine which user should be edited.', 'warning');
             return;
         }
 
@@ -1600,6 +1611,32 @@ export async function initAdminEscalations() {
     } catch {
         showAlert('Unable to load escalated disputes.');
     }
+}
+
+export async function initAdminManageTicket() {
+    const ticketNumber = String(document.querySelector('.ticket-page-header')?.dataset.ticketNumber ?? 'this ticket').trim() || 'this ticket';
+    const printBtn = document.getElementById('adminTicketPrintBtn');
+    const resolveBtn = document.getElementById('adminTicketResolveBtn');
+    const saveNotesBtn = document.getElementById('adminTicketSaveNotesBtn');
+
+    printBtn?.addEventListener('click', () => {
+        showToast(`Print-ready export for ${ticketNumber} will be added next.`, 'primary');
+    });
+
+    resolveBtn?.addEventListener('click', () => {
+        showToast(`Resolution workflow for ${ticketNumber} is ready for backend wiring next.`, 'success');
+    });
+
+    saveNotesBtn?.addEventListener('click', () => {
+        showToast(`Internal note saving for ${ticketNumber} will be connected next.`, 'primary');
+    });
+
+    document.querySelectorAll('[data-admin-ticket-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const label = String(button.getAttribute('data-admin-ticket-action') ?? 'This action').trim();
+            showToast(`${label} for ${ticketNumber} will be connected next.`, 'primary');
+        });
+    });
 }
 
 export async function initAdminSettings() {

@@ -27,6 +27,8 @@ Route::middleware('auth')->prefix('portal')->group(function () {
     Route::get('/student/submit-dispute', [FrontendController::class, 'studentSubmitDispute'])->name('portal.student.submit');
     Route::get('/student/tickets', [FrontendController::class, 'studentTickets'])->name('portal.student.tickets');
     Route::get('/student/notifications', [FrontendController::class, 'studentNotifications'])->name('portal.student.notifications');
+    Route::get('/student/profile', [FrontendController::class, 'studentProfile'])->name('portal.student.profile');
+    Route::get('/student/settings', [FrontendController::class, 'studentSettings'])->name('portal.student.settings');
     Route::get('/student/disputes', [FrontendController::class, 'studentDisputes'])->name('portal.student.disputes');
     Route::get('/student/disputes/{id}', [FrontendController::class, 'studentDisputeDetail'])->name('portal.student.dispute.detail');
 
@@ -37,7 +39,12 @@ Route::middleware('auth')->prefix('portal')->group(function () {
 
     Route::get('/admin/dashboard', [FrontendController::class, 'adminDashboard'])->name('portal.admin.dashboard');
     Route::get('/admin/disputes', [FrontendController::class, 'adminDisputes'])->name('portal.admin.disputes');
+    Route::get('/admin/disputes/{id}', [FrontendController::class, 'adminManageTicket'])->name('portal.admin.disputes.manage');
     Route::get('/admin/users', [FrontendController::class, 'adminUsers'])->name('portal.admin.users');
+    Route::get('/admin/users/create', [FrontendController::class, 'adminUserCreate'])->name('portal.admin.users.create');
+    Route::get('/admin/users/{identifier}/edit', [FrontendController::class, 'adminUserEdit'])
+        ->where('identifier', '.*')
+        ->name('portal.admin.users.edit');
     Route::get('/admin/escalations', [FrontendController::class, 'adminEscalations'])->name('portal.admin.escalations');
     Route::get('/admin/reports', [FrontendController::class, 'adminReports'])->name('portal.admin.reports');
     Route::get('/admin/settings', [FrontendController::class, 'adminSettings'])->name('portal.admin.settings');

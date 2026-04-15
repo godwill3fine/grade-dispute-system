@@ -1072,6 +1072,119 @@ textarea.form-control {
     opacity: 0.7;
 }
 
+.settings-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.settings-trigger[aria-expanded="true"] {
+    background: var(--color-bg-card);
+    border-color: var(--color-border-divider);
+    color: var(--color-primary);
+}
+
+.settings-dropdown-menu {
+    position: absolute;
+    top: 48px;
+    right: 0;
+    width: 220px;
+    overflow: hidden;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-divider);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    display: none;
+    flex-direction: column;
+    z-index: var(--z-dropdown);
+}
+
+.settings-dropdown-menu.show {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border-divider);
+}
+
+.dropdown-header h4 {
+    margin: 0 0 2px;
+    color: var(--color-primary-dark);
+    font-size: 1rem;
+    font-weight: var(--font-weight-bold);
+}
+
+.dropdown-header p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+}
+
+.dropdown-list {
+    padding: 4px 0;
+    margin: 0;
+}
+
+.dropdown-list li a,
+.settings-dropdown-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+    text-align: left;
+    transition: background var(--transition-speed) ease;
+}
+
+.dropdown-list li a:hover,
+.settings-dropdown-action:hover {
+    background: var(--color-bg-hover);
+}
+
+.settings-dropdown-menu .material-symbols-outlined {
+    font-size: 18px;
+    color: var(--color-text-secondary);
+}
+
+.logout-item {
+    border-top: 1px solid var(--color-border-divider);
+    margin-top: 2px;
+    padding-top: 2px;
+}
+
+.settings-logout-form {
+    margin: 0;
+}
+
+.logout-item a,
+.logout-item .settings-dropdown-action,
+.logout-item .settings-dropdown-action .material-symbols-outlined {
+    color: var(--status-danger) !important;
+    font-weight: var(--font-weight-medium);
+}
+
+.logout-item a:hover,
+.logout-item .settings-dropdown-action:hover {
+    background-color: rgba(220, 38, 38, 0.08);
+}
+
 @media (max-width: 1024px) {
     .details-grid {
         grid-template-columns: 1fr;

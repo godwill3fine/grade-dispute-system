@@ -13,7 +13,7 @@ class Student extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['reg_number', 'first_name', 'last_name', 'full_name', 'course', 'year'];
+    protected $fillable = ['reg_number', 'first_name', 'last_name', 'full_name', 'course', 'year', 'department', 'faculty'];
 
     public function disputes()
     {

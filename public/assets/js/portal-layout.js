@@ -68,6 +68,54 @@ if (overlay && wrapper) {
     });
 }
 
+const settingsDropdownWrappers = document.querySelectorAll(".settings-dropdown-wrapper");
+
+function closeSettingsMenus() {
+    settingsDropdownWrappers.forEach((wrapperEl) => {
+        wrapperEl.querySelector(".settings-dropdown-menu")?.classList.remove("show");
+        wrapperEl.querySelector(".settings-trigger")?.setAttribute("aria-expanded", "false");
+    });
+}
+
+if (settingsDropdownWrappers.length > 0) {
+    settingsDropdownWrappers.forEach((wrapperEl) => {
+        const settingsIcon = wrapperEl.querySelector(".settings-trigger");
+        const settingsDropdown = wrapperEl.querySelector(".settings-dropdown-menu");
+
+        if (!settingsIcon || !settingsDropdown) {
+            return;
+        }
+
+        settingsIcon.addEventListener("click", (event) => {
+            event.stopPropagation();
+
+            const willOpen = !settingsDropdown.classList.contains("show");
+
+            closeSettingsMenus();
+
+            if (willOpen) {
+                settingsDropdown.classList.add("show");
+                settingsIcon.setAttribute("aria-expanded", "true");
+            }
+        });
+    });
+
+    document.addEventListener("click", (event) => {
+        settingsDropdownWrappers.forEach((wrapperEl) => {
+            if (!wrapperEl.contains(event.target)) {
+                wrapperEl.querySelector(".settings-dropdown-menu")?.classList.remove("show");
+                wrapperEl.querySelector(".settings-trigger")?.setAttribute("aria-expanded", "false");
+            }
+        });
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeSettingsMenus();
+        }
+    });
+}
+
 window.addEventListener("resize", () => {
     applySidebarState(readSavedSidebarState());
 });

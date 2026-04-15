@@ -1,6 +1,7 @@
 import {
     initAdminActivity,
     initAdminDashboard,
+    initAdminManageTicket,
     initAdminDisputes,
     initAdminEscalations,
     initAdminReports,
@@ -106,6 +107,9 @@ async function bootstrap() {
             break;
         case 'admin-disputes':
             await initAdminDisputes();
+            break;
+        case 'admin-manage-ticket':
+            await initAdminManageTicket();
             break;
         case 'admin-users':
             await initAdminUsers();
