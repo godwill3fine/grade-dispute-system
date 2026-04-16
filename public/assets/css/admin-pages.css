@@ -526,6 +526,10 @@ body[data-page="admin-dashboard"] .admin-summary-action {
     border: 2px solid var(--color-text-muted);
 }
 
+.status-dot.pending {
+    background-color: var(--status-warning);
+}
+
 .action-buttons {
     display: flex;
     gap: 8px;
@@ -870,6 +874,18 @@ body[data-page="admin-users"] .admin-users-table td:last-child {
     flex-direction: column;
 }
 
+.add-user-role-fields,
+.edit-user-role-fields {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--color-border-divider);
+}
+
+.add-user-role-fields[hidden],
+.edit-user-role-fields[hidden] {
+    display: none !important;
+}
+
 .add-user-role-list {
     gap: 16px;
 }
@@ -1163,6 +1179,57 @@ body[data-page="admin-user-edit"] .form-control[readonly]:focus {
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.94) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
+.print-only {
+    display: none;
+}
+
+.ticket-print-header {
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--color-text-primary);
+}
+
+.ticket-print-header h1 {
+    margin: 8px 0 10px;
+    color: var(--color-text-primary);
+    font-size: 1.9rem;
+}
+
+.ticket-print-brand {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ticket-print-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.ticket-print-header p {
+    margin: 14px 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    max-width: 820px;
+}
+
+.ticket-print-notes {
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid rgba(92, 106, 124, 0.18);
+    border-radius: 12px;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+
 @media (max-width: 1024px) {
     .admin-grid {
         grid-template-columns: 1fr;
@@ -1281,5 +1348,129 @@ body[data-page="admin-user-edit"] .form-control[readonly]:focus {
 @media (max-width: 600px) {
     .stats-container.stats-grid-4 {
         grid-template-columns: 1fr;
+    }
+}
+
+@media print {
+    @page {
+        margin: 14mm;
+    }
+
+    body[data-page="admin-manage-ticket"] {
+        background: #fff !important;
+        color: #111827 !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .print-only {
+        display: block !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .no-print,
+    body[data-page="admin-manage-ticket"] .sidebar,
+    body[data-page="admin-manage-ticket"] .navbar,
+    body[data-page="admin-manage-ticket"] .footer,
+    body[data-page="admin-manage-ticket"] .overlay,
+    body[data-page="admin-manage-ticket"] #globalAlert,
+    body[data-page="admin-manage-ticket"] #toastRegion {
+        display: none !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .wrapper,
+    body[data-page="admin-manage-ticket"] .main,
+    body[data-page="admin-manage-ticket"] .content {
+        display: block !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-page-header {
+        margin-bottom: 18px;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-page-header .header-text {
+        max-width: none;
+    }
+
+    body[data-page="admin-manage-ticket"] .header-badges {
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    body[data-page="admin-manage-ticket"] .badge-dark-solid,
+    body[data-page="admin-manage-ticket"] .badge-outline-gray,
+    body[data-page="admin-manage-ticket"] .role-badge {
+        color: #111827 !important;
+        background: #fff !important;
+        border-color: #9ca3af !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .stats-container.stats-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-details-grid {
+        display: block;
+        margin-top: 18px;
+    }
+
+    body[data-page="admin-manage-ticket"] .detail-card,
+    body[data-page="admin-manage-ticket"] .ticket-stat-card,
+    body[data-page="admin-manage-ticket"] .ticket-person-card,
+    body[data-page="admin-manage-ticket"] .ticket-attachment-link,
+    body[data-page="admin-manage-ticket"] .timeline-box {
+        background: #fff !important;
+        box-shadow: none !important;
+        border: 1px solid #d1d5db !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    body[data-page="admin-manage-ticket"] .detail-card {
+        margin-bottom: 16px;
+    }
+
+    body[data-page="admin-manage-ticket"] .detail-card-header {
+        color: #111827 !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-overview-grid {
+        grid-template-columns: 150px 1fr;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-alert-text,
+    body[data-page="admin-manage-ticket"] .ticket-stat-meta,
+    body[data-page="admin-manage-ticket"] .user-meta,
+    body[data-page="admin-manage-ticket"] .user-meta-muted,
+    body[data-page="admin-manage-ticket"] .ticket-attachment-copy span,
+    body[data-page="admin-manage-ticket"] .timeline-author,
+    body[data-page="admin-manage-ticket"] .timeline-date {
+        color: #4b5563 !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .stat-icon-box,
+    body[data-page="admin-manage-ticket"] .timeline-dot {
+        border-color: #d1d5db !important;
+        color: #6b7280 !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-attachment-link {
+        text-decoration: none;
+        color: inherit !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .form-text,
+    body[data-page="admin-manage-ticket"] #adminInternalNotes {
+        display: none !important;
+    }
+
+    body[data-page="admin-manage-ticket"] .ticket-person-list,
+    body[data-page="admin-manage-ticket"] .ticket-attachment-list,
+    body[data-page="admin-manage-ticket"] .timeline-container {
+        gap: 12px;
     }
 }

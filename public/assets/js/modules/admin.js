@@ -1,5 +1,6 @@
 import { apiGet, apiPost } from './api.js';
 import {
+    disputeId,
     emptyState,
     escapeHtml,
     formatDate,
@@ -23,6 +24,7 @@ let adminDisputeMeta = { departments: [], units: [] };
 const ADMIN_DISPUTE_PAGE_SIZE = 7;
 const ADMIN_ACTIVITY_PAGE_SIZE = 7;
 const ADMIN_USER_PAGE_SIZE = 7;
+const ADMIN_USERS_FLASH_KEY = 'gds_admin_users_flash';
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const DEFAULT_ADMIN_SETTINGS = {
     standard_submission_window_days: '14',
@@ -32,6 +34,89 @@ const DEFAULT_ADMIN_SETTINGS = {
     escalation_days_admin: '6',
     require_grade_adjustment_justification: '1',
 };
+
+function setButtonBusyState(button, busy, busyLabel = 'Working...') {
+    if (!button) {
+        return;
+    }
+
+    if (!button.dataset.defaultHtml) {
+        button.dataset.defaultHtml = button.innerHTML;
+    }
+
+    button.disabled = busy;
+    button.innerHTML = busy ? busyLabel : button.dataset.defaultHtml;
+}
+
+function persistAdminUsersFlash(payload) {
+    try {
+        window.sessionStorage.setItem(ADMIN_USERS_FLASH_KEY, JSON.stringify(payload ?? {}));
+    } catch {
+        // Ignore unavailable storage and continue without cross-page flash state.
+    }
+}
+
+function consumeAdminUsersFlash() {
+    try {
+        const stored = window.sessionStorage.getItem(ADMIN_USERS_FLASH_KEY);
+        if (!stored) {
+            return null;
+        }
+
+        window.sessionStorage.removeItem(ADMIN_USERS_FLASH_KEY);
+        return JSON.parse(stored);
+    } catch {
+        return null;
+    }
+}
+
+function maybeApplyAdminUsersFlash() {
+    const flash = consumeAdminUsersFlash();
+    if (!flash || typeof flash !== 'object') {
+        return;
+    }
+
+    if (flash.toastMessage) {
+        showToast(flash.toastMessage, flash.toastTone ?? 'success');
+    }
+
+    if (flash.alertMessage) {
+        showAlert(flash.alertMessage, flash.alertTone ?? 'warning');
+    }
+}
+
+function firstErrorMessage(error, fallback) {
+    const messages = Object.values(error?.errors ?? {})
+        .flat()
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean);
+
+    if (messages.length) {
+        return messages.join(' ');
+    }
+
+    return error?.message ?? fallback;
+}
+
+async function submitAdminUserImport(file) {
+    const formData = new FormData();
+    formData.append('import_file', file);
+    return apiPost('/admin/users/import', formData);
+}
+
+function adminUserImportFollowUpMessage(response) {
+    const summary = response?.summary ?? {};
+
+    if ((summary.default_password_count ?? 0) > 0) {
+        return `${summary.default_password_count} imported user(s) received a temporary password equal to their identifier.`;
+    }
+
+    const followUp = [...(response?.warnings ?? []), ...(response?.errors ?? [])]
+        .slice(0, 2)
+        .join(' ');
+
+    return followUp;
+}
 
 function maybeRenderChart(id, config) {
     const canvas = document.getElementById(id);
@@ -1263,9 +1348,12 @@ function userRoleBadge(role) {
 
 function userStatusIndicator(status) {
     const normalized = String(status ?? 'active').toLowerCase();
-    const inactive = ['inactive', 'disabled', 'suspended'].includes(normalized);
-    const label = inactive ? 'Inactive' : 'Active';
-    const dotClass = inactive ? 'inactive' : 'active';
+    const label = normalized === 'pending invite'
+        ? 'Pending Invite'
+        : (['inactive', 'disabled', 'suspended'].includes(normalized) ? 'Inactive' : 'Active');
+    const dotClass = normalized === 'pending invite'
+        ? 'pending'
+        : (['inactive', 'disabled', 'suspended'].includes(normalized) ? 'inactive' : 'active');
     return `<div class="status-indicator"><span class="status-dot ${dotClass}"></span> ${label}</div>`;
 }
 
@@ -1449,11 +1537,24 @@ export async function initAdminUsers() {
     const statusFilter = document.getElementById('adminUserStatusFilter');
     const pagination = document.getElementById('adminUsersPaginationControls');
     const importBtn = document.getElementById('adminUsersImportBtn');
+    const importInput = document.getElementById('adminUsersImportInput');
     const addBtn = document.getElementById('adminUsersAddBtn');
     const tableBody = document.getElementById('adminUsersTableBody');
 
     const refresh = () => {
         loadAdminUserPage(1);
+    };
+    maybeApplyAdminUsersFlash();
+
+    const loadUsers = async () => {
+        try {
+            const data = await apiGet('/admin/users');
+            adminUserCache = Array.isArray(data) ? data : [];
+            populateAdminUserRoleFilter(adminUserCache);
+            loadAdminUserPage(1);
+        } catch {
+            showAlert('Unable to load the user directory.');
+        }
     };
 
     searchInput?.addEventListener('input', refresh);
@@ -1483,7 +1584,34 @@ export async function initAdminUsers() {
     });
 
     importBtn?.addEventListener('click', () => {
-        showToast('Bulk user import will be added in the next pass.', 'primary');
+        importInput?.click();
+    });
+
+    importInput?.addEventListener('change', async () => {
+        const [file] = Array.from(importInput.files ?? []);
+        if (!file) {
+            return;
+        }
+
+        setButtonBusyState(importBtn, true, 'Importing...');
+
+        try {
+            const response = await submitAdminUserImport(file);
+            const summary = response?.summary ?? {};
+            showToast(response?.message ?? 'User import complete.', summary.created_count > 0 ? 'success' : 'primary');
+
+            const followUp = adminUserImportFollowUpMessage(response);
+            if (followUp) {
+                showAlert(followUp, 'warning');
+            }
+
+            await loadUsers();
+        } catch (error) {
+            showAlert(error.message ?? 'Unable to import users.');
+        } finally {
+            setButtonBusyState(importBtn, false);
+            importInput.value = '';
+        }
     });
 
     addBtn?.addEventListener('click', () => {
@@ -1506,18 +1634,414 @@ export async function initAdminUsers() {
         const deleteTrigger = event.target.closest('.admin-user-delete-btn');
         if (deleteTrigger) {
             const identifier = deleteTrigger.dataset.userId ?? 'this user';
-            showToast(`Deletion controls for ${identifier} will be added next.`, 'warning');
+
+            if (!window.confirm(`Delete ${identifier}? This only works for accounts with no dispute or audit history.`)) {
+                return;
+            }
+
+            setButtonBusyState(deleteTrigger, true, '...');
+
+            apiPost(`/admin/users/${encodeURIComponent(identifier)}/actions`, { action: 'delete' })
+                .then(async (response) => {
+                    showToast(response?.message ?? `${identifier} was deleted.`, response?.tone ?? 'success');
+                    await loadUsers();
+                })
+                .catch((error) => {
+                    const message = firstErrorMessage(error, `Unable to delete ${identifier}.`);
+                    showAlert(message);
+                })
+                .finally(() => {
+                    setButtonBusyState(deleteTrigger, false);
+                });
         }
     });
 
-    try {
-        const data = await apiGet('/admin/users');
-        adminUserCache = Array.isArray(data) ? data : [];
-        populateAdminUserRoleFilter(adminUserCache);
-        loadAdminUserPage(1);
-    } catch {
-        showAlert('Unable to load the user directory.');
-    }
+    await loadUsers();
+}
+
+export async function initAdminUserCreate() {
+    const form = document.getElementById('adminUserCreateForm');
+    const feedback = document.getElementById('adminUserCreateFeedback');
+    const roleSelect = document.getElementById('adminUserRole');
+    const departmentSelect = document.getElementById('adminUserDepartment');
+    const departmentHelp = document.getElementById('adminUserDepartmentHelp');
+    const statusSelect = document.getElementById('adminUserStatus');
+    const securityNote = document.getElementById('adminUserSecurityNote');
+    const passwordPreview = document.getElementById('adminUserPasswordSetupPreview');
+    const welcomeCheckbox = document.getElementById('adminUserSendWelcomeEmail');
+    const resetCheckbox = document.getElementById('adminUserRequirePasswordReset');
+    const manualApprovalCheckbox = document.getElementById('adminUserManualApproval');
+    const importBtn = document.getElementById('adminUserCreateImportBtn');
+    const importInput = document.getElementById('adminUserCreateImportInput');
+    const submitBtn = document.getElementById('adminUserCreateSubmitBtn');
+    const redirectUrl = form?.dataset.redirectUrl ?? '/portal/admin/users';
+
+    const setFeedback = (message = '', tone = 'danger') => {
+        if (!feedback) {
+            return;
+        }
+
+        feedback.textContent = message;
+        feedback.classList.toggle('d-none', !message);
+        feedback.classList.remove('alert-danger', 'alert-warning', 'alert-success', 'alert-info');
+
+        if (message) {
+            feedback.classList.add(`alert-${tone}`);
+        }
+    };
+
+    const roleMatches = (roleList, role) => String(roleList ?? '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean)
+        .includes(String(role ?? '').trim().toLowerCase());
+
+    const syncRoleFields = () => {
+        const role = String(roleSelect?.value ?? '').trim().toLowerCase();
+
+        document.querySelectorAll('[data-role-section]').forEach((section) => {
+            section.hidden = !roleMatches(section.dataset.roleSection, role);
+        });
+
+        document.querySelectorAll('[data-required-roles]').forEach((field) => {
+            field.required = roleMatches(field.dataset.requiredRoles, role);
+        });
+
+        if (departmentSelect) {
+            departmentSelect.required = role === 'lecturer';
+        }
+
+        if (departmentHelp) {
+            departmentHelp.textContent = role === 'lecturer'
+                ? 'Department is required for lecturers so case routing and scoped access stay accurate.'
+                : (role === 'student'
+                    ? 'Department is optional for student accounts, but it helps with reporting and directory filters.'
+                    : 'Use a department when this account should be tied to a specific academic or support unit.');
+        }
+    };
+
+    const syncSecurityCopy = () => {
+        const welcomeEnabled = Boolean(welcomeCheckbox?.checked);
+        const requireReset = Boolean(resetCheckbox?.checked);
+        const manualApproval = Boolean(manualApprovalCheckbox?.checked);
+        const activeStatus = String(statusSelect?.value ?? '').trim().toLowerCase() === 'active';
+
+        if (securityNote) {
+            securityNote.textContent = welcomeEnabled
+                ? 'Welcome email sends the user into the password setup flow instead of exposing a password in email.'
+                : 'If the welcome email is skipped, the temporary password defaults to the University ID.';
+        }
+
+        if (passwordPreview) {
+            const notes = [
+                welcomeEnabled
+                    ? 'Welcome email can point the user into the password setup flow.'
+                    : 'Temporary password defaults to the University ID until the user resets it.',
+            ];
+
+            if (requireReset) {
+                notes.push('First access requires a password reset.');
+            }
+
+            if (manualApproval && activeStatus) {
+                notes.push('Active status will be saved as Pending Invite until approval is complete.');
+            } else if (manualApproval) {
+                notes.push('The account will still be flagged for manual approval before activation.');
+            }
+
+            passwordPreview.textContent = notes.join(' ');
+        }
+    };
+
+    roleSelect?.addEventListener('change', syncRoleFields);
+    statusSelect?.addEventListener('change', syncSecurityCopy);
+    welcomeCheckbox?.addEventListener('change', syncSecurityCopy);
+    resetCheckbox?.addEventListener('change', syncSecurityCopy);
+    manualApprovalCheckbox?.addEventListener('change', syncSecurityCopy);
+
+    importBtn?.addEventListener('click', () => {
+        importInput?.click();
+    });
+
+    importInput?.addEventListener('change', async () => {
+        const [file] = Array.from(importInput.files ?? []);
+        if (!file) {
+            return;
+        }
+
+        setFeedback('');
+        setButtonBusyState(importBtn, true, 'Importing...');
+
+        try {
+            const response = await submitAdminUserImport(file);
+            const summary = response?.summary ?? {};
+
+            persistAdminUsersFlash({
+                toastMessage: response?.message ?? 'User import complete.',
+                toastTone: (summary.created_count ?? 0) > 0 ? 'success' : 'primary',
+                alertMessage: adminUserImportFollowUpMessage(response),
+                alertTone: 'warning',
+            });
+
+            window.location.assign(redirectUrl);
+        } catch (error) {
+            const message = firstErrorMessage(error, 'Unable to import users.');
+            setFeedback(message, 'danger');
+            showAlert(message);
+        } finally {
+            setButtonBusyState(importBtn, false);
+            importInput.value = '';
+        }
+    });
+
+    form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setFeedback('');
+
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+        payload.send_welcome_email = formData.has('send_welcome_email');
+        payload.require_password_reset = formData.has('require_password_reset');
+        payload.manual_approval_required = formData.has('manual_approval_required');
+
+        setButtonBusyState(submitBtn, true, 'Creating...');
+
+        try {
+            const response = await apiPost(form.action, payload);
+            persistAdminUsersFlash({
+                toastMessage: response?.message ?? 'User created successfully.',
+                toastTone: 'success',
+                alertMessage: response?.admin_notice ?? '',
+                alertTone: response?.admin_notice_tone ?? 'warning',
+            });
+            window.location.assign(response?.next ?? redirectUrl);
+        } catch (error) {
+            const message = firstErrorMessage(error, 'Unable to create user.');
+            setFeedback(message, 'danger');
+            showAlert(message);
+        } finally {
+            setButtonBusyState(submitBtn, false);
+        }
+    });
+
+    syncRoleFields();
+    syncSecurityCopy();
+}
+
+export async function initAdminUserEdit() {
+    const form = document.getElementById('adminUserEditForm');
+    const feedback = document.getElementById('adminUserEditFeedback');
+    const roleSelect = document.getElementById('adminUserEditRole');
+    const departmentSelect = document.getElementById('adminUserEditDepartment');
+    const departmentHelp = document.getElementById('adminUserEditDepartmentHelp');
+    const responsibilityInput = document.getElementById('adminUserEditResponsibility');
+    const courseInput = document.getElementById('adminUserEditCourse');
+    const securityNote = document.getElementById('adminUserEditSecurityNote');
+    const requireResetCheckbox = document.getElementById('adminUserEditRequirePasswordReset');
+    const manualApprovalCheckbox = document.getElementById('adminUserEditManualApproval');
+    const sendAccountEmailCheckbox = document.getElementById('adminUserEditSendAccountEmail');
+    const saveBtn = document.getElementById('adminUserEditSaveBtn');
+    const sendPasswordResetBtn = document.getElementById('adminUserEditSendPasswordResetBtn');
+    const resendAccountEmailBtn = document.getElementById('adminUserEditResendAccountEmailBtn');
+    const resetLoginFactorsBtn = document.getElementById('adminUserEditResetLoginFactorsBtn');
+    const deactivateBtn = document.getElementById('adminUserEditDeactivateBtn');
+    const reloadUrl = form?.dataset.reloadUrl ?? window.location.href;
+    const actionUrl = form?.dataset.actionUrl ?? '';
+    const identifier = String(document.getElementById('adminUserEditIdentifier')?.value ?? 'this user').trim() || 'this user';
+
+    const setFeedback = (message = '', tone = 'danger') => {
+        if (!feedback) {
+            return;
+        }
+
+        feedback.textContent = message;
+        feedback.classList.toggle('d-none', !message);
+        feedback.classList.remove('alert-danger', 'alert-warning', 'alert-success', 'alert-info');
+
+        if (message) {
+            feedback.classList.add(`alert-${tone}`);
+        }
+    };
+
+    const roleMatches = (roleList, role) => String(roleList ?? '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean)
+        .includes(String(role ?? '').trim().toLowerCase());
+
+    const selectedStatus = () => String(form?.querySelector('input[name="status"]:checked')?.value ?? '').trim().toLowerCase();
+
+    const syncResponsibilityPreview = () => {
+        if (!responsibilityInput) {
+            return;
+        }
+
+        const role = String(roleSelect?.value ?? '').trim().toLowerCase();
+        const course = String(courseInput?.value ?? '').trim();
+
+        responsibilityInput.value = role === 'student'
+            ? (course ? `Course ${course} dispute submissions` : 'Student dispute submissions')
+            : (role === 'lecturer'
+                ? 'Assessment review and ticket responses'
+                : 'User, settings, and escalation management');
+    };
+
+    const syncRoleFields = () => {
+        const role = String(roleSelect?.value ?? '').trim().toLowerCase();
+
+        document.querySelectorAll('[data-role-section]').forEach((section) => {
+            section.hidden = !roleMatches(section.dataset.roleSection, role);
+        });
+
+        document.querySelectorAll('[data-required-roles]').forEach((field) => {
+            field.required = roleMatches(field.dataset.requiredRoles, role);
+        });
+
+        if (departmentSelect) {
+            departmentSelect.required = role === 'lecturer';
+        }
+
+        if (departmentHelp) {
+            departmentHelp.textContent = role === 'lecturer'
+                ? 'Department is required for lecturers so case routing and scoped access stay accurate.'
+                : (role === 'student'
+                    ? 'Department is optional for student accounts, but it helps with reporting and filters.'
+                    : 'Use a department when this admin account should be tied to a specific academic or support unit.');
+        }
+
+        syncResponsibilityPreview();
+    };
+
+    const syncSecurityCopy = () => {
+        if (!securityNote) {
+            return;
+        }
+
+        const messages = [];
+        const status = selectedStatus();
+
+        if (manualApprovalCheckbox?.checked && status === 'active') {
+            messages.push('Active status will be saved as Pending Invite until approval is complete.');
+        } else if (manualApprovalCheckbox?.checked) {
+            messages.push('Manual approval remains enabled for this account.');
+        }
+
+        if (requireResetCheckbox?.checked) {
+            messages.push('Password reset will be required at the next sign-in.');
+        }
+
+        if (sendAccountEmailCheckbox?.checked) {
+            messages.push('Saving will resend the account email with the current access instructions.');
+        }
+
+        if (!messages.length) {
+            messages.push('Password reset emails route the user into the existing self-service reset flow.');
+        }
+
+        securityNote.textContent = messages.join(' ');
+    };
+
+    const handleActionResponse = (response) => {
+        const tone = response?.tone ?? 'primary';
+        const message = response?.message ?? 'Action completed.';
+
+        showToast(message, tone === 'warning' ? 'primary' : tone);
+
+        if (tone === 'warning') {
+            showAlert(message, 'warning');
+        }
+
+        if (response?.reload) {
+            window.setTimeout(() => {
+                window.location.assign(reloadUrl);
+            }, 400);
+        }
+    };
+
+    const runUserAction = async (action, button, busyLabel) => {
+        if (!actionUrl) {
+            showAlert('Unable to determine which user action should be sent.');
+            return;
+        }
+
+        setFeedback('');
+        setButtonBusyState(button, true, busyLabel);
+
+        try {
+            const response = await apiPost(actionUrl, { action });
+            handleActionResponse(response);
+        } catch (error) {
+            const message = firstErrorMessage(error, 'Unable to complete that user action.');
+            setFeedback(message, 'danger');
+            showAlert(message);
+        } finally {
+            setButtonBusyState(button, false);
+        }
+    };
+
+    roleSelect?.addEventListener('change', syncRoleFields);
+    courseInput?.addEventListener('input', syncResponsibilityPreview);
+    form?.querySelectorAll('input[name="status"]').forEach((input) => {
+        input.addEventListener('change', syncSecurityCopy);
+    });
+    requireResetCheckbox?.addEventListener('change', syncSecurityCopy);
+    manualApprovalCheckbox?.addEventListener('change', syncSecurityCopy);
+    sendAccountEmailCheckbox?.addEventListener('change', syncSecurityCopy);
+
+    sendPasswordResetBtn?.addEventListener('click', async () => {
+        await runUserAction('send_password_reset', sendPasswordResetBtn, 'Sending...');
+    });
+
+    resendAccountEmailBtn?.addEventListener('click', async () => {
+        await runUserAction('resend_account_email', resendAccountEmailBtn, 'Sending...');
+    });
+
+    resetLoginFactorsBtn?.addEventListener('click', async () => {
+        await runUserAction('reset_login_factors', resetLoginFactorsBtn, 'Checking...');
+    });
+
+    deactivateBtn?.addEventListener('click', async () => {
+        if (!window.confirm(`Deactivate ${identifier}? They will not be able to sign in until reactivated.`)) {
+            return;
+        }
+
+        await runUserAction('deactivate', deactivateBtn, 'Deactivating...');
+    });
+
+    form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setFeedback('');
+
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+        payload.require_password_reset = formData.has('require_password_reset');
+        payload.manual_approval_required = formData.has('manual_approval_required');
+        payload.send_account_email = formData.has('send_account_email');
+
+        setButtonBusyState(saveBtn, true, 'Saving...');
+
+        try {
+            const response = await apiPost(form.action, payload);
+            showToast(response?.message ?? 'User updated successfully.', 'success');
+
+            if (response?.admin_notice) {
+                showAlert(response.admin_notice, response.admin_notice_tone ?? 'warning');
+            }
+
+            window.setTimeout(() => {
+                window.location.assign(response?.next ?? reloadUrl);
+            }, 450);
+        } catch (error) {
+            const message = firstErrorMessage(error, 'Unable to save user changes.');
+            setFeedback(message, 'danger');
+            showAlert(message);
+        } finally {
+            setButtonBusyState(saveBtn, false);
+        }
+    });
+
+    syncRoleFields();
+    syncSecurityCopy();
 }
 
 export async function initAdminReports() {
@@ -1614,17 +2138,163 @@ export async function initAdminEscalations() {
 }
 
 export async function initAdminManageTicket() {
+    const currentDisputeId = disputeId();
     const ticketNumber = String(document.querySelector('.ticket-page-header')?.dataset.ticketNumber ?? 'this ticket').trim() || 'this ticket';
     const printBtn = document.getElementById('adminTicketPrintBtn');
     const resolveBtn = document.getElementById('adminTicketResolveBtn');
+    const lecturerSelect = document.getElementById('adminTicketLecturerSelect');
+    const lecturerUpdateBtn = document.getElementById('adminTicketLecturerUpdateBtn');
+    const statusSelect = document.getElementById('adminTicketStatusSelect');
+    const statusApplyBtn = document.getElementById('adminTicketStatusApplyBtn');
+    const routingSelect = document.getElementById('adminTicketRoutingSelect');
+    const routingBtn = document.getElementById('adminTicketRoutingBtn');
+    const applyChangesBtn = document.getElementById('adminTicketApplyChangesBtn');
     const saveNotesBtn = document.getElementById('adminTicketSaveNotesBtn');
+    const printTimestamp = document.getElementById('adminTicketPrintTimestamp');
+    const originalDocumentTitle = document.title;
+
+    const setBusyState = (button, busy, busyLabel = 'Saving...') => {
+        if (!button) {
+            return;
+        }
+
+        if (!button.dataset.defaultHtml) {
+            button.dataset.defaultHtml = button.innerHTML;
+        }
+
+        button.disabled = busy;
+        button.innerHTML = busy ? busyLabel : button.dataset.defaultHtml;
+    };
+
+    const readSelectedValue = (select) => String(select?.value ?? '').trim();
+
+    const syncPrintTimestamp = () => {
+        if (!printTimestamp) {
+            return;
+        }
+
+        printTimestamp.textContent = new Date().toLocaleString([], {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        });
+    };
+
+    const submitTicketUpdate = async (button, payload, successFallback) => {
+        if (!currentDisputeId) {
+            showAlert('Unable to determine which ticket should be updated.');
+            return;
+        }
+
+        setBusyState(button, true);
+
+        try {
+            const response = await apiPost(`/admin/disputes/${encodeURIComponent(currentDisputeId)}/manage`, payload);
+            const changed = Boolean(response?.changed ?? true);
+            showToast(response?.message ?? successFallback, changed ? 'success' : 'primary');
+
+            if (changed) {
+                window.setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }
+        } catch (error) {
+            showAlert(error.message ?? 'Unable to update the ticket.');
+        } finally {
+            setBusyState(button, false);
+        }
+    };
+
+    window.addEventListener('beforeprint', syncPrintTimestamp);
 
     printBtn?.addEventListener('click', () => {
-        showToast(`Print-ready export for ${ticketNumber} will be added next.`, 'primary');
+        syncPrintTimestamp();
+        document.title = `${ticketNumber} Case File`;
+
+        const restoreTitle = () => {
+            document.title = originalDocumentTitle;
+        };
+
+        window.addEventListener('afterprint', restoreTitle, { once: true });
+        window.print();
     });
 
-    resolveBtn?.addEventListener('click', () => {
-        showToast(`Resolution workflow for ${ticketNumber} is ready for backend wiring next.`, 'success');
+    resolveBtn?.addEventListener('click', async () => {
+        await submitTicketUpdate(resolveBtn, { status: 'resolved' }, `${ticketNumber} marked as resolved.`);
+    });
+
+    lecturerUpdateBtn?.addEventListener('click', async () => {
+        const lecturerId = readSelectedValue(lecturerSelect);
+        if (!lecturerId) {
+            showAlert('Select a lecturer before updating the assignment.');
+            return;
+        }
+
+        await submitTicketUpdate(
+            lecturerUpdateBtn,
+            {
+                lecturer_id: lecturerId,
+                routing_stage: 'Lecturer Review',
+            },
+            `Lecturer assignment updated for ${ticketNumber}.`,
+        );
+    });
+
+    statusApplyBtn?.addEventListener('click', async () => {
+        const status = readSelectedValue(statusSelect);
+        if (!status) {
+            showAlert('Select a status before applying the override.');
+            return;
+        }
+
+        await submitTicketUpdate(
+            statusApplyBtn,
+            { status },
+            `Status updated for ${ticketNumber}.`,
+        );
+    });
+
+    routingBtn?.addEventListener('click', async () => {
+        const routingStage = readSelectedValue(routingSelect);
+        const lecturerId = readSelectedValue(lecturerSelect);
+
+        if (!routingStage) {
+            showAlert('Select a routing destination before continuing.');
+            return;
+        }
+
+        if (routingStage === 'Lecturer Review' && !lecturerId) {
+            showAlert('Select a lecturer before routing this ticket to lecturer review.');
+            return;
+        }
+
+        const payload = { routing_stage: routingStage };
+        if (routingStage === 'Lecturer Review') {
+            payload.lecturer_id = lecturerId;
+        }
+
+        await submitTicketUpdate(routingBtn, payload, `Routing updated for ${ticketNumber}.`);
+    });
+
+    applyChangesBtn?.addEventListener('click', async () => {
+        const status = readSelectedValue(statusSelect);
+        const routingStage = readSelectedValue(routingSelect);
+        const lecturerId = readSelectedValue(lecturerSelect);
+
+        if (routingStage === 'Lecturer Review' && !lecturerId) {
+            showAlert('Select a lecturer before applying lecturer-review routing.');
+            return;
+        }
+
+        const payload = {
+            status,
+            routing_stage: routingStage,
+        };
+
+        if (routingStage === 'Lecturer Review' && lecturerId) {
+            payload.lecturer_id = lecturerId;
+        }
+
+        await submitTicketUpdate(applyChangesBtn, payload, `Administrative changes saved for ${ticketNumber}.`);
     });
 
     saveNotesBtn?.addEventListener('click', () => {

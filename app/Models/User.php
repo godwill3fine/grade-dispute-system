@@ -18,6 +18,10 @@ class User extends Authenticatable
         'role_id',
         'department_id',
         'status',
+        'office_location',
+        'require_password_reset',
+        'manual_approval_required',
+        'welcome_email_sent_at',
         'last_login',
         'password',
     ];
@@ -35,6 +39,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login' => 'datetime',
+            'welcome_email_sent_at' => 'datetime',
+            'require_password_reset' => 'boolean',
+            'manual_approval_required' => 'boolean',
             'password' => 'hashed',
         ];
     }

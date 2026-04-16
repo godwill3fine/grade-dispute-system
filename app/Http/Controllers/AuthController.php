@@ -144,6 +144,27 @@ class AuthController extends Controller
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
+        $status = $this->normalizeAccountStatus($user->status);
+
+        if ($status === 'pending invite') {
+            return response()->json([
+                'error' => 'This account is waiting for administrative approval before sign-in is enabled.',
+            ], 403);
+        }
+
+        if ($status === 'inactive') {
+            return response()->json([
+                'error' => 'This account is inactive. Contact an administrator for help.',
+            ], 403);
+        }
+
+        if ($user->require_password_reset) {
+            return response()->json([
+                'error' => 'Reset your password before signing in to this account.',
+                'next' => route('portal.password.forgot', ['identifier' => $user->identifier]),
+            ], 409);
+        }
+
         auth()->login($user);
         $request->session()->regenerate();
         $user->forceFill(['last_login' => now()])->save();
@@ -354,6 +375,7 @@ class AuthController extends Controller
         }
 
         $user->password = Hash::make((string) $request->password);
+        $user->require_password_reset = false;
         $user->save();
 
         $this->clearPasswordResetFlow($request);
@@ -397,5 +419,16 @@ class AuthController extends Controller
     private function clearPasswordResetFlow(Request $request): void
     {
         $request->session()->forget(self::PASSWORD_RESET_SESSION_KEY);
+    }
+
+    private function normalizeAccountStatus(?string $status): string
+    {
+        $normalized = strtolower(trim((string) $status));
+
+        return match ($normalized) {
+            'inactive', 'disabled', 'suspended' => 'inactive',
+            'pending', 'pending invite' => 'pending invite',
+            default => 'active',
+        };
     }
 }

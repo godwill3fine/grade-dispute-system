@@ -15,39 +15,47 @@
         <a href="{{ route('portal.admin.users') }}" class="btn btn-outline btn-surface">
             <span class="material-symbols-outlined">arrow_back</span> Back to Users
         </a>
-        <button class="btn btn-primary" type="button">
+        <button class="btn btn-primary" id="adminUserCreateImportBtn" type="button">
             <span class="material-symbols-outlined">upload_file</span> Bulk Import
         </button>
+        <input id="adminUserCreateImportInput" type="file" accept=".csv,text/csv" class="d-none" aria-hidden="true">
     </div>
 </div>
 
 <div class="details-grid add-user-layout">
     <div class="details-left">
-        <form action="#" class="add-user-form">
+        <form
+            action="{{ route('admin.users.store') }}"
+            method="post"
+            class="add-user-form"
+            id="adminUserCreateForm"
+            data-redirect-url="{{ route('portal.admin.users') }}"
+        >
             <section class="detail-card">
                 <div class="detail-card-header">Profile Information</div>
                 <div class="detail-card-body">
+                    <div class="alert alert-danger d-none" id="adminUserCreateFeedback" role="alert"></div>
                     <p class="add-user-section-copy">Capture the user identity details exactly as they appear in university records.</p>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="first-name">First Name *</label>
-                            <input id="first-name" type="text" class="form-control" placeholder="e.g. John" required>
+                            <label for="adminUserFirstName">First Name *</label>
+                            <input id="adminUserFirstName" name="first_name" type="text" class="form-control" placeholder="e.g. John" required>
                         </div>
                         <div class="form-group">
-                            <label for="last-name">Last Name *</label>
-                            <input id="last-name" type="text" class="form-control" placeholder="e.g. Doe" required>
+                            <label for="adminUserLastName">Last Name *</label>
+                            <input id="adminUserLastName" name="last_name" type="text" class="form-control" placeholder="e.g. Doe" required>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="email-address">Email Address *</label>
-                            <input id="email-address" type="email" class="form-control" placeholder="e.g. jdoe@university.edu" required>
+                            <label for="adminUserEmail">Email Address *</label>
+                            <input id="adminUserEmail" name="email" type="email" class="form-control" placeholder="e.g. jdoe@university.edu" required>
                         </div>
                         <div class="form-group">
-                            <label for="university-id">University ID *</label>
-                            <input id="university-id" type="text" class="form-control" placeholder="e.g. U100234" required>
+                            <label for="adminUserIdentifier">University ID *</label>
+                            <input id="adminUserIdentifier" name="identifier" type="text" class="form-control" placeholder="e.g. U100234" required>
                         </div>
                     </div>
                 </div>
@@ -58,8 +66,8 @@
                 <div class="detail-card-body">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="system-role">System Role *</label>
-                            <select id="system-role" class="form-control" required>
+                            <label for="adminUserRole">System Role *</label>
+                            <select id="adminUserRole" name="role" class="form-control" required>
                                 <option value="" disabled selected>Select a role...</option>
                                 @foreach (($adminUserFormMeta['roles'] ?? []) as $role)
                                     <option value="{{ $role }}">{{ ucfirst($role) }}</option>
@@ -67,29 +75,60 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="department">Department</label>
-                            <select id="department" class="form-control">
-                                <option>None / Not Applicable</option>
+                            <label for="adminUserDepartment">Department</label>
+                            <select id="adminUserDepartment" name="department" class="form-control" data-required-roles="lecturer">
+                                <option value="">None / Not Applicable</option>
                                 @foreach (($adminUserFormMeta['departments'] ?? []) as $department)
                                     <option value="{{ $department }}">{{ $department }}</option>
                                 @endforeach
                             </select>
-                            <span class="form-text">Use a department for lecturers and support staff who need scoped access.</span>
+                            <span class="form-text" id="adminUserDepartmentHelp">Use a department for lecturers and support staff who need scoped access.</span>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="account-status">Account Status</label>
-                            <select id="account-status" class="form-control">
+                            <label for="adminUserStatus">Account Status</label>
+                            <select id="adminUserStatus" name="status" class="form-control">
                                 @foreach (($adminUserFormMeta['statuses'] ?? []) as $status)
-                                    <option value="{{ $status }}">{{ ucfirst($status) }}</option>
+                                    <option value="{{ $status }}" @selected($status === 'active')>{{ ucwords($status) }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="office-location">Office / Campus</label>
-                            <input id="office-location" type="text" class="form-control" placeholder="e.g. Main Campus - Block B">
+                            <label for="adminUserOfficeLocation">Office / Campus</label>
+                            <input id="adminUserOfficeLocation" name="office_location" type="text" class="form-control" placeholder="e.g. Main Campus - Block B">
+                        </div>
+                    </div>
+
+                    <div class="add-user-role-fields" data-role-section="student" hidden>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminUserCourse">Course *</label>
+                                <input id="adminUserCourse" name="course" type="text" class="form-control" placeholder="e.g. BSc Computer Science" data-required-roles="student">
+                            </div>
+                            <div class="form-group">
+                                <label for="adminUserYear">Year *</label>
+                                <input id="adminUserYear" name="year" type="number" min="1" max="12" step="1" class="form-control" placeholder="e.g. 2" data-required-roles="student">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminUserFaculty">Faculty</label>
+                                <input id="adminUserFaculty" name="faculty" type="text" class="form-control" placeholder="e.g. COPAS">
+                                <span class="form-text">Add faculty when you want student records grouped beyond the department label.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="add-user-role-fields" data-role-section="lecturer,admin" hidden>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminUserSalutation">Salutation</label>
+                                <input id="adminUserSalutation" name="salutation" type="text" class="form-control" placeholder="e.g. Dr., Prof., Mr., Ms.">
+                                <span class="form-text">Optional title used in lecturer and admin profiles.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -101,25 +140,29 @@
                     <p class="add-user-section-copy">Choose how the account is activated and what the new user receives immediately after creation.</p>
 
                     <label class="settings-checkbox-wrapper add-user-toggle">
-                        <input type="checkbox" checked>
+                        <input id="adminUserSendWelcomeEmail" name="send_welcome_email" type="checkbox" checked>
                         <span class="checkbox-text">Send welcome email with password creation link</span>
                     </label>
 
                     <label class="settings-checkbox-wrapper add-user-toggle">
-                        <input type="checkbox" checked>
+                        <input id="adminUserRequirePasswordReset" name="require_password_reset" type="checkbox" checked>
                         <span class="checkbox-text">Require password reset on first sign-in</span>
                     </label>
 
                     <label class="settings-checkbox-wrapper add-user-toggle">
-                        <input type="checkbox">
+                        <input id="adminUserManualApproval" name="manual_approval_required" type="checkbox">
                         <span class="checkbox-text">Mark account for manual approval before activation</span>
                     </label>
+
+                    <p class="ticket-card-note" id="adminUserSecurityNote">
+                        If the welcome email is skipped, the temporary password defaults to the University ID.
+                    </p>
 
                     <div class="form-actions add-user-actions">
                         <a href="{{ route('portal.admin.users') }}" class="btn btn-outline">
                             <span class="material-symbols-outlined">close</span> Cancel
                         </a>
-                        <button type="button" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="adminUserCreateSubmitBtn">
                             <span class="material-symbols-outlined">person_add</span> Create User
                         </button>
                     </div>
@@ -189,7 +232,7 @@
                     <span class="overview-value">Email alerts plus in-app updates when enabled</span>
 
                     <span class="overview-label">Password Setup</span>
-                    <span class="overview-value">Self-service creation link sent from the welcome workflow</span>
+                    <span class="overview-value" id="adminUserPasswordSetupPreview">Welcome email can point the user into the password setup flow; otherwise the temporary password defaults to the University ID.</span>
                 </div>
             </div>
         </section>

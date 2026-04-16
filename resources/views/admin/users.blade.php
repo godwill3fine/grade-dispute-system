@@ -9,6 +9,7 @@
     <div class="header-text"></div>
     <div class="header-actions">
         <button class="btn btn-outline btn-surface" id="adminUsersImportBtn" type="button">Import Users</button>
+        <input id="adminUsersImportInput" type="file" accept=".csv,text/csv" class="d-none" aria-hidden="true">
         <button class="btn btn-primary" id="adminUsersAddBtn" type="button">
             <span class="material-symbols-outlined">add</span> Add User
         </button>
@@ -39,6 +40,7 @@
             <select class="status-filter" id="adminUserStatusFilter" aria-label="Filter by status">
                 <option value="">Status</option>
                 <option value="active">Active</option>
+                <option value="pending invite">Pending Invite</option>
                 <option value="inactive">Inactive</option>
             </select>
         </div>

@@ -93,7 +93,16 @@ Route::middleware(['role:student,lecturer,admin'])->group(function () {
 Route::middleware(['role:admin'])->group(function () {
     Route::get('/admin/dashboard', [DisputeController::class, 'adminDashboard']);
     Route::get('/admin/disputes', [DisputeController::class, 'allDisputes']);
+    Route::post('/admin/disputes/{id}/manage', [DisputeController::class, 'adminUpdateTicket']);
     Route::get('/admin/users', [AdminController::class, 'userDirectory']);
+    Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
+    Route::post('/admin/users/import', [AdminController::class, 'importUsers']);
+    Route::post('/admin/users/{identifier}/actions', [AdminController::class, 'userAction'])
+        ->where('identifier', '.*')
+        ->name('admin.users.actions');
+    Route::post('/admin/users/{identifier}', [AdminController::class, 'updateUser'])
+        ->where('identifier', '.*')
+        ->name('admin.users.update');
     Route::get('/admin/disputes/escalated', [DisputeController::class, 'escalatedDisputes']);
     Route::get('/admin/escalated', [DisputeController::class, 'escalatedDisputes']);
     Route::get('/admin/disputes/filter', [DisputeController::class, 'filterDisputes']);

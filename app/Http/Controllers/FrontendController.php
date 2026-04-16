@@ -505,15 +505,22 @@ class FrontendController extends Controller
 
         $lastActivityAt = $logs->last()?->created_at ?? $dispute->updated_at ?? $dispute->created_at;
         $staleDays = $lastActivityAt
-            ? Carbon::instance($lastActivityAt)->setTimezone('Africa/Nairobi')->diffInDays(Carbon::now('Africa/Nairobi'))
-            : 0;
-        $overdueDays = max($staleDays - 2, 0);
+            ? round(
+                Carbon::instance($lastActivityAt)
+                    ->setTimezone('Africa/Nairobi')
+                    ->diffInSeconds(Carbon::now('Africa/Nairobi')) / 86400,
+                1,
+            )
+            : 0.0;
+        $overdueDays = max(round($staleDays - 2, 1), 0.0);
         $isResolved = in_array($statusKey, ['resolved', 'closed'], true);
         $isOverdue = ! $isResolved && $overdueDays > 0;
+        $overdueUnit = abs($overdueDays - 1.0) < 0.05 ? 'Day' : 'Days';
+        $overdueLabel = number_format($overdueDays, 1).' '.$overdueUnit;
 
         $slaLabel = $isResolved
             ? 'Resolved'
-            : ($isOverdue ? 'Overdue by '.$overdueDays.' '.Str::plural('day', $overdueDays) : 'Within review window');
+            : ($isOverdue ? 'Overdue by '.$overdueLabel : 'Within review window');
 
         $timeOpenDays = $dispute->created_at
             ? round(
@@ -526,11 +533,13 @@ class FrontendController extends Controller
         $timeOpenUnit = abs($timeOpenDays - 1.0) < 0.05 ? 'Day' : 'Days';
         $timeOpenLabel = $dispute->created_at ? number_format($timeOpenDays, 1).' '.$timeOpenUnit : 'Not available';
         $timeOpenMeta = $isOverdue
-            ? 'SLA exceeded by '.$overdueDays.' '.Str::plural('day', $overdueDays)
+            ? 'SLA exceeded by '.$overdueLabel
             : 'Submitted '.$this->formatPortalDate($dispute->created_at);
 
+        $storedStage = trim((string) ($dispute->assignment_name ?? ''));
         $currentStage = match (true) {
             $isResolved => 'Resolved',
+            $storedStage !== '' => $storedStage,
             in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Dean Review',
             ($assignedInfo['role'] ?? '') === 'lecturer' => 'Lecturer Review',
             in_array($assignedInfo['role'] ?? '', ['hod', 'exam_officer'], true) => 'Department Board',
@@ -550,7 +559,7 @@ class FrontendController extends Controller
             array_unshift($routingOptions, $currentStage);
         }
 
-        $statusOptions = collect(['pending', 'under_review', 'escalated', 'resolved', 'rejected'])
+        $statusOptions = collect(['pending', 'under_review', 'escalated', 'resolved'])
             ->map(fn (string $value) => [
                 'value' => $value,
                 'label' => $this->formatDisputeStatusLabel($value),
@@ -832,6 +841,9 @@ class FrontendController extends Controller
         $role = Str::lower(trim((string) $user->role));
         $status = $this->normalizeAdminUserStatus($user->status);
         $course = trim((string) data_get($profile, 'course', ''));
+        $salutation = trim((string) data_get($profile, 'salutation', ''));
+        $year = filled(data_get($profile, 'year')) ? (string) data_get($profile, 'year') : '';
+        $officeLocation = trim((string) ($user->office_location ?? ''));
 
         return [
             'name' => $this->adminUserDisplayName($user, $profile),
@@ -842,16 +854,23 @@ class FrontendController extends Controller
             'role' => $role,
             'role_label' => Str::upper($role === '' ? 'user' : $role),
             'status' => $status,
-            'status_label' => ucfirst($status),
+            'status_label' => Str::title(str_replace('_', ' ', $status)),
             'department' => $department !== '' ? $department : 'None / Not Applicable',
             'faculty' => $faculty !== '' ? $faculty : 'Not assigned',
-            'campus' => 'Main Campus',
+            'salutation' => $salutation,
+            'course' => $course,
+            'year' => $year,
+            'campus' => $officeLocation !== '' ? $officeLocation : 'Main Campus',
+            'office_location' => $officeLocation,
             'responsibility' => match ($role) {
                 'student' => $course !== '' ? 'Course '.$course.' dispute submissions' : 'Student dispute submissions',
                 'lecturer' => 'Assessment review and ticket responses',
                 'admin' => 'User, settings, and escalation management',
                 default => 'Portal access management',
             },
+            'require_password_reset' => (bool) $user->require_password_reset,
+            'manual_approval_required' => (bool) $user->manual_approval_required,
+            'welcome_email_sent_at' => $this->formatPortalTimestamp($user->welcome_email_sent_at, 'Not sent yet'),
             'icon' => match ($role) {
                 'student' => 'school',
                 'lecturer' => 'co_present',
@@ -955,7 +974,11 @@ class FrontendController extends Controller
     {
         $normalized = Str::lower(trim((string) $status));
 
-        return in_array($normalized, ['inactive', 'disabled', 'suspended'], true) ? 'inactive' : 'active';
+        return match ($normalized) {
+            'inactive', 'disabled', 'suspended' => 'inactive',
+            'pending', 'pending invite' => 'pending invite',
+            default => 'active',
+        };
     }
 
     private function resolveDisputeActorInfo(

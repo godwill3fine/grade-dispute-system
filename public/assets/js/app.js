@@ -2,6 +2,8 @@ import {
     initAdminActivity,
     initAdminDashboard,
     initAdminManageTicket,
+    initAdminUserCreate,
+    initAdminUserEdit,
     initAdminDisputes,
     initAdminEscalations,
     initAdminReports,
@@ -113,6 +115,12 @@ async function bootstrap() {
             break;
         case 'admin-users':
             await initAdminUsers();
+            break;
+        case 'admin-user-create':
+            await initAdminUserCreate();
+            break;
+        case 'admin-user-edit':
+            await initAdminUserEdit();
             break;
         case 'admin-escalations':
             await initAdminEscalations();

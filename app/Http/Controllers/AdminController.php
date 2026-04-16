@@ -2,13 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AdminUserWelcomeMail;
+use App\Models\Attachment;
+use App\Models\Department;
 use App\Models\ActivityLog;
+use App\Models\Dispute;
+use App\Models\DisputeLog;
 use App\Models\Lecturer;
+use App\Models\Notification;
+use App\Models\Role;
 use App\Models\Staff;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\ActivityLogService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminController extends Controller
 {
@@ -90,6 +104,1138 @@ class AdminController extends Controller
         return response()->json($payload);
     }
 
+    public function storeUser(Request $request): JsonResponse
+    {
+        $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'identifier' => ['required', 'string', 'max:255', 'unique:users,identifier'],
+            'role' => ['required', 'string'],
+            'department' => ['nullable', 'string', 'max:255'],
+            'faculty' => ['nullable', 'string', 'max:255'],
+            'course' => ['nullable', 'string', 'max:255'],
+            'year' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'salutation' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', 'string'],
+            'office_location' => ['nullable', 'string', 'max:255'],
+            'send_welcome_email' => ['nullable', 'boolean'],
+            'require_password_reset' => ['nullable', 'boolean'],
+            'manual_approval_required' => ['nullable', 'boolean'],
+        ]);
+
+        $role = $this->normalizeImportRole((string) $request->input('role'));
+        $firstName = trim((string) $request->input('first_name'));
+        $lastName = trim((string) $request->input('last_name'));
+        $email = Str::lower(trim((string) $request->input('email')));
+        $identifier = trim((string) $request->input('identifier'));
+        $departmentName = $this->normalizeDepartmentSelection((string) $request->input('department', ''));
+        $facultyName = trim((string) $request->input('faculty', ''));
+        $course = trim((string) $request->input('course', ''));
+        $salutation = trim((string) $request->input('salutation', ''));
+        $officeLocation = trim((string) $request->input('office_location', ''));
+        $selectedStatus = $this->normalizeAccountStatus((string) $request->input('status', 'active'));
+        $sendWelcomeEmail = $request->boolean('send_welcome_email');
+        $requirePasswordReset = $request->boolean('require_password_reset');
+        $manualApprovalRequired = $request->boolean('manual_approval_required');
+        $effectiveStatus = $this->effectiveAccountStatus($selectedStatus, $manualApprovalRequired);
+        $department = $this->resolveImportDepartment($departmentName, $facultyName);
+        $roleIds = Role::query()->pluck('id', 'name')->all();
+        $temporaryPassword = $identifier;
+
+        if ($role === 'student') {
+            if ($course === '') {
+                throw ValidationException::withMessages([
+                    'course' => ['Course is required for student accounts.'],
+                ]);
+            }
+
+            if (! $request->filled('year')) {
+                throw ValidationException::withMessages([
+                    'year' => ['Year is required for student accounts.'],
+                ]);
+            }
+        }
+
+        if ($role === 'lecturer' && $departmentName === '') {
+            throw ValidationException::withMessages([
+                'department' => ['Department is required for lecturer accounts.'],
+            ]);
+        }
+
+        $user = DB::transaction(function () use (
+            $role,
+            $firstName,
+            $lastName,
+            $email,
+            $identifier,
+            $department,
+            $departmentName,
+            $facultyName,
+            $course,
+            $salutation,
+            $officeLocation,
+            $effectiveStatus,
+            $requirePasswordReset,
+            $manualApprovalRequired,
+            $roleIds,
+            $temporaryPassword,
+            $request
+        ): User {
+            if ($role === 'student') {
+                Student::updateOrCreate(
+                    ['reg_number' => $identifier],
+                    [
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'course' => $course,
+                        'year' => (int) $request->input('year'),
+                        'department' => $departmentName !== '' ? $departmentName : null,
+                        'faculty' => $facultyName !== '' ? $facultyName : null,
+                    ]
+                );
+            } elseif ($role === 'lecturer') {
+                Lecturer::updateOrCreate(
+                    ['lecturer_id' => $identifier],
+                    [
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'salutation' => $salutation !== '' ? $salutation : null,
+                        'department' => $departmentName,
+                    ]
+                );
+            } else {
+                Staff::updateOrCreate(
+                    ['staff_id' => $identifier],
+                    [
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'salutation' => $salutation !== '' ? $salutation : null,
+                        'role' => 'admin',
+                        'department' => $departmentName !== '' ? $departmentName : null,
+                    ]
+                );
+            }
+
+            return User::create([
+                'name' => trim($firstName.' '.$lastName),
+                'email' => $email,
+                'identifier' => $identifier,
+                'role' => $role,
+                'role_id' => $roleIds[$role] ?? null,
+                'department_id' => $department?->id,
+                'status' => $effectiveStatus,
+                'office_location' => $officeLocation !== '' ? $officeLocation : null,
+                'require_password_reset' => $requirePasswordReset,
+                'manual_approval_required' => $manualApprovalRequired,
+                'password' => Hash::make($temporaryPassword),
+            ]);
+        });
+
+        $welcomeEmailSent = false;
+
+        if ($sendWelcomeEmail) {
+            try {
+                Mail::to($user->email)->send(
+                    new AdminUserWelcomeMail(
+                        recipientName: trim($user->name),
+                        identifier: $user->identifier,
+                        roleLabel: Str::title($role),
+                        portalUrl: route('portal.auth'),
+                        passwordSetupUrl: route('portal.password.forgot', ['identifier' => $user->identifier]),
+                        statusLabel: Str::title(str_replace('_', ' ', $effectiveStatus)),
+                        requirePasswordReset: $requirePasswordReset,
+                        manualApprovalRequired: $manualApprovalRequired,
+                    )
+                );
+
+                $user->forceFill([
+                    'welcome_email_sent_at' => now(),
+                ])->save();
+
+                $welcomeEmailSent = true;
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        ActivityLogService::log(
+            trim((string) ($request->attributes->get('actor_identifier') ?? $request->user()?->identifier ?? '')),
+            'Create User',
+            'user',
+            $user->id,
+            "Created {$role} account {$identifier} with status {$effectiveStatus}."
+        );
+
+        [$adminNotice, $adminNoticeTone] = $this->buildUserCreateAdminNotice(
+            sendWelcomeEmail: $sendWelcomeEmail,
+            welcomeEmailSent: $welcomeEmailSent,
+            requirePasswordReset: $requirePasswordReset,
+            effectiveStatus: $effectiveStatus,
+            identifier: $identifier,
+        );
+
+        return response()->json([
+            'message' => "{$user->name} was created successfully.",
+            'next' => route('portal.admin.users'),
+            'admin_notice' => $adminNotice,
+            'admin_notice_tone' => $adminNoticeTone,
+            'user' => [
+                'id' => $user->id,
+                'identifier' => $user->identifier,
+                'role' => $user->role,
+                'status' => $user->status,
+            ],
+            'welcome_email_sent' => $welcomeEmailSent,
+            'welcome_email_requested' => $sendWelcomeEmail,
+            'require_password_reset' => $requirePasswordReset,
+            'manual_approval_required' => $manualApprovalRequired,
+            'temporary_password_hint' => 'Temporary password defaults to the University ID when you need to share access manually.',
+        ], 201);
+    }
+
+    public function updateUser(Request $request, string $identifier): JsonResponse
+    {
+        $user = User::query()->where('identifier', $identifier)->firstOrFail();
+
+        $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'role' => ['required', 'string'],
+            'department' => ['nullable', 'string', 'max:255'],
+            'faculty' => ['nullable', 'string', 'max:255'],
+            'course' => ['nullable', 'string', 'max:255'],
+            'year' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'salutation' => ['nullable', 'string', 'max:50'],
+            'status' => ['required', 'string'],
+            'office_location' => ['nullable', 'string', 'max:255'],
+            'send_account_email' => ['nullable', 'boolean'],
+            'require_password_reset' => ['nullable', 'boolean'],
+            'manual_approval_required' => ['nullable', 'boolean'],
+        ]);
+
+        $role = $this->normalizeImportRole((string) $request->input('role'));
+        $firstName = trim((string) $request->input('first_name'));
+        $lastName = trim((string) $request->input('last_name'));
+        $email = Str::lower(trim((string) $request->input('email')));
+        $departmentName = $this->normalizeDepartmentSelection((string) $request->input('department', ''));
+        $facultyName = trim((string) $request->input('faculty', ''));
+        $course = trim((string) $request->input('course', ''));
+        $year = $request->filled('year') ? (int) $request->input('year') : null;
+        $salutation = trim((string) $request->input('salutation', ''));
+        $officeLocation = trim((string) $request->input('office_location', ''));
+        $selectedStatus = $this->normalizeAccountStatus((string) $request->input('status', 'active'));
+        $sendAccountEmail = $request->boolean('send_account_email');
+        $requirePasswordReset = $request->boolean('require_password_reset');
+        $manualApprovalRequired = $request->boolean('manual_approval_required');
+        $effectiveStatus = $this->effectiveAccountStatus($selectedStatus, $manualApprovalRequired);
+        $department = $this->resolveImportDepartment($departmentName, $facultyName);
+        $roleIds = Role::query()->pluck('id', 'name')->all();
+
+        if ($role === 'student') {
+            if ($course === '') {
+                throw ValidationException::withMessages([
+                    'course' => ['Course is required for student accounts.'],
+                ]);
+            }
+
+            if ($year === null) {
+                throw ValidationException::withMessages([
+                    'year' => ['Year is required for student accounts.'],
+                ]);
+            }
+        }
+
+        if ($role === 'lecturer' && $departmentName === '') {
+            throw ValidationException::withMessages([
+                'department' => ['Department is required for lecturer accounts.'],
+            ]);
+        }
+
+        $this->guardSelfAdministration(
+            actor: $request->user(),
+            target: $user,
+            nextRole: $role,
+            nextStatus: $effectiveStatus,
+        );
+
+        DB::transaction(function () use (
+            $user,
+            $role,
+            $firstName,
+            $lastName,
+            $departmentName,
+            $facultyName,
+            $course,
+            $year,
+            $salutation,
+            $email,
+            $department,
+            $effectiveStatus,
+            $officeLocation,
+            $requirePasswordReset,
+            $manualApprovalRequired,
+            $roleIds
+        ): void {
+            $this->syncUserProfileForRole(
+                identifier: $user->identifier,
+                role: $role,
+                firstName: $firstName,
+                lastName: $lastName,
+                departmentName: $departmentName,
+                facultyName: $facultyName,
+                course: $course,
+                year: $year,
+                salutation: $salutation,
+            );
+
+            $this->removeStaleProfiles($user->identifier, $role);
+
+            $user->forceFill([
+                'name' => trim($firstName.' '.$lastName),
+                'email' => $email,
+                'role' => $role,
+                'role_id' => $roleIds[$role] ?? null,
+                'department_id' => $department?->id,
+                'status' => $effectiveStatus,
+                'office_location' => $officeLocation !== '' ? $officeLocation : null,
+                'require_password_reset' => $requirePasswordReset,
+                'manual_approval_required' => $manualApprovalRequired,
+            ])->save();
+        });
+
+        $accountEmailSent = false;
+
+        if ($sendAccountEmail) {
+            $accountEmailSent = $this->sendUserAccountEmail($user);
+        }
+
+        ActivityLogService::log(
+            trim((string) ($request->attributes->get('actor_identifier') ?? $request->user()?->identifier ?? '')),
+            'Update User',
+            'user',
+            $user->id,
+            "Updated {$user->role} account {$user->identifier} with status {$user->status}."
+        );
+
+        [$adminNotice, $adminNoticeTone] = $this->buildUserEditAdminNotice(
+            sendAccountEmail: $sendAccountEmail,
+            accountEmailSent: $accountEmailSent,
+            requirePasswordReset: $requirePasswordReset,
+            effectiveStatus: $user->status,
+            identifier: $user->identifier,
+        );
+
+        return response()->json([
+            'message' => "{$user->name} was updated successfully.",
+            'admin_notice' => $adminNotice,
+            'admin_notice_tone' => $adminNoticeTone,
+            'next' => route('portal.admin.users.edit', ['identifier' => $user->identifier]),
+            'user' => [
+                'identifier' => $user->identifier,
+                'role' => $user->role,
+                'status' => $user->status,
+            ],
+        ]);
+    }
+
+    public function userAction(Request $request, string $identifier): JsonResponse
+    {
+        $request->validate([
+            'action' => ['required', 'string'],
+        ]);
+
+        $user = User::query()->where('identifier', $identifier)->firstOrFail();
+        $action = trim((string) $request->input('action'));
+        $actorIdentifier = trim((string) ($request->attributes->get('actor_identifier') ?? $request->user()?->identifier ?? ''));
+
+        if ($action === 'send_password_reset') {
+            $user->forceFill([
+                'require_password_reset' => true,
+            ])->save();
+
+            $emailSent = $this->sendUserAccountEmail($user, true);
+
+            ActivityLogService::log(
+                $actorIdentifier,
+                'Send Password Reset',
+                'user',
+                $user->id,
+                "Triggered password reset instructions for {$user->identifier}."
+            );
+
+            return response()->json([
+                'message' => $emailSent
+                    ? "Password reset instructions sent to {$user->email}."
+                    : "Password reset is now required for {$user->identifier}, but the email could not be sent.",
+                'tone' => $emailSent ? 'success' : 'warning',
+                'reload' => true,
+            ]);
+        }
+
+        if ($action === 'resend_account_email') {
+            $emailSent = $this->sendUserAccountEmail($user);
+
+            ActivityLogService::log(
+                $actorIdentifier,
+                'Resend Account Email',
+                'user',
+                $user->id,
+                "Resent onboarding email for {$user->identifier}."
+            );
+
+            return response()->json([
+                'message' => $emailSent
+                    ? "Account email sent to {$user->email}."
+                    : "Unable to send the account email for {$user->identifier} right now.",
+                'tone' => $emailSent ? 'success' : 'warning',
+                'reload' => $emailSent,
+            ]);
+        }
+
+        if ($action === 'deactivate') {
+            if ($request->user()?->id === $user->id) {
+                throw ValidationException::withMessages([
+                    'action' => ['You cannot deactivate the admin account you are currently using.'],
+                ]);
+            }
+
+            $user->forceFill([
+                'status' => 'inactive',
+            ])->save();
+
+            ActivityLogService::log(
+                $actorIdentifier,
+                'Deactivate User',
+                'user',
+                $user->id,
+                "Deactivated {$user->identifier}."
+            );
+
+            return response()->json([
+                'message' => "{$user->identifier} is now inactive.",
+                'tone' => 'success',
+                'reload' => true,
+            ]);
+        }
+
+        if ($action === 'delete') {
+            if ($request->user()?->id === $user->id) {
+                throw ValidationException::withMessages([
+                    'action' => ['You cannot delete the admin account you are currently using.'],
+                ]);
+            }
+
+            $blockers = $this->userDeletionBlockers($user);
+
+            if ($blockers !== []) {
+                throw ValidationException::withMessages([
+                    'action' => ['Delete is only available for unused accounts. '.implode(' ', $blockers).' Deactivate this user instead if you need to preserve system history.'],
+                ]);
+            }
+
+            $deletedUserId = $user->id;
+            $deletedIdentifier = trim((string) $user->identifier);
+
+            DB::transaction(function () use ($user, $deletedIdentifier): void {
+                Notification::query()->where('recipient_id', $deletedIdentifier)->delete();
+                $this->removeStaleProfiles($deletedIdentifier, 'none');
+                $user->delete();
+            });
+
+            ActivityLogService::log(
+                $actorIdentifier,
+                'Delete User',
+                'user',
+                $deletedUserId,
+                "Deleted {$deletedIdentifier}."
+            );
+
+            return response()->json([
+                'message' => "{$deletedIdentifier} was deleted successfully.",
+                'tone' => 'success',
+                'reload' => false,
+                'removed' => true,
+            ]);
+        }
+
+        if ($action === 'reset_login_factors') {
+            return response()->json([
+                'message' => 'No additional login factors are configured for this account yet.',
+                'tone' => 'primary',
+                'reload' => false,
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'action' => ['Unsupported user action.'],
+        ]);
+    }
+
+    public function importUsers(Request $request): JsonResponse
+    {
+        $request->validate([
+            'import_file' => ['required', 'file', 'mimes:csv,txt'],
+        ]);
+
+        $rows = $this->parseImportRows($request->file('import_file')->getRealPath());
+        if ($rows === []) {
+            throw ValidationException::withMessages([
+                'import_file' => ['The uploaded CSV does not contain any user rows.'],
+            ]);
+        }
+
+        $roleIds = Role::query()->pluck('id', 'name')->all();
+        $createdCount = 0;
+        $skippedCount = 0;
+        $defaultPasswordCount = 0;
+        $warnings = [];
+        $errors = [];
+        $seenIdentifiers = [];
+        $seenEmails = [];
+
+        foreach ($rows as $lineNumber => $row) {
+            try {
+                $identifier = $this->requiredImportValue($row, 'identifier', 'identifier');
+                $email = Str::lower($this->requiredImportValue($row, 'email', 'email'));
+
+                if (in_array($identifier, $seenIdentifiers, true)) {
+                    $skippedCount++;
+                    $warnings[] = "Row {$lineNumber}: Duplicate identifier {$identifier} was skipped.";
+
+                    continue;
+                }
+
+                if (in_array($email, $seenEmails, true)) {
+                    $skippedCount++;
+                    $warnings[] = "Row {$lineNumber}: Duplicate email {$email} was skipped.";
+
+                    continue;
+                }
+
+                $seenIdentifiers[] = $identifier;
+                $seenEmails[] = $email;
+
+                if (User::query()->where('identifier', $identifier)->exists()) {
+                    $skippedCount++;
+                    $warnings[] = "Row {$lineNumber}: User {$identifier} already exists and was skipped.";
+
+                    continue;
+                }
+
+                if (User::query()->where('email', $email)->exists()) {
+                    $skippedCount++;
+                    $warnings[] = "Row {$lineNumber}: Email {$email} is already in use and was skipped.";
+
+                    continue;
+                }
+
+                $importResult = $this->importUserRow($row, $roleIds);
+                $createdCount++;
+
+                if ($importResult['used_default_password'] ?? false) {
+                    $defaultPasswordCount++;
+                }
+            } catch (ValidationException $exception) {
+                $errors[] = "Row {$lineNumber}: ".collect($exception->errors())->flatten()->implode(' ');
+            } catch (\Throwable $exception) {
+                report($exception);
+                $errors[] = "Row {$lineNumber}: Unexpected import error.";
+            }
+        }
+
+        if ($createdCount > 0) {
+            ActivityLogService::log(
+                $request->attributes->get('actor_identifier'),
+                'Bulk User Import',
+                'user',
+                null,
+                "Imported {$createdCount} user(s); skipped {$skippedCount}; validation errors ".count($errors).'.'
+            );
+        }
+
+        return response()->json([
+            'message' => $this->importSummaryMessage($createdCount, $skippedCount, count($errors)),
+            'summary' => [
+                'created_count' => $createdCount,
+                'skipped_count' => $skippedCount,
+                'error_count' => count($errors),
+                'default_password_count' => $defaultPasswordCount,
+            ],
+            'warnings' => $warnings,
+            'errors' => $errors,
+        ]);
+    }
+
+    private function importUserRow(array $row, array $roleIds): array
+    {
+        $role = $this->normalizeImportRole($this->requiredImportValue($row, 'role', 'role'));
+        [$firstName, $lastName] = $this->resolveImportNameParts($row);
+        $identifier = $this->requiredImportValue($row, 'identifier', 'identifier');
+        $email = Str::lower($this->requiredImportValue($row, 'email', 'email'));
+        $departmentName = $this->optionalImportValue($row, 'department');
+        $facultyName = $this->optionalImportValue($row, 'faculty');
+        $status = $this->normalizeAccountStatus($this->optionalImportValue($row, 'status'));
+        $salutation = $this->optionalImportValue($row, 'salutation');
+        $password = $this->optionalImportValue($row, 'password');
+        $usedDefaultPassword = $password === '';
+        $department = $this->resolveImportDepartment($departmentName, $facultyName);
+
+        if ($role === 'student') {
+            $course = $this->requiredImportValue($row, 'course', 'course');
+            $year = $this->normalizeImportYear($this->requiredImportValue($row, 'year', 'year'));
+
+            DB::transaction(function () use (
+                $identifier,
+                $firstName,
+                $lastName,
+                $email,
+                $password,
+                $usedDefaultPassword,
+                $status,
+                $department,
+                $departmentName,
+                $facultyName,
+                $role,
+                $roleIds,
+                $course,
+                $year
+            ): void {
+                Student::updateOrCreate(
+                    ['reg_number' => $identifier],
+                    [
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'course' => $course,
+                        'year' => $year,
+                        'department' => $departmentName !== '' ? $departmentName : null,
+                        'faculty' => $facultyName !== '' ? $facultyName : null,
+                    ]
+                );
+
+                User::create([
+                    'name' => trim($firstName.' '.$lastName),
+                    'email' => $email,
+                    'identifier' => $identifier,
+                    'role' => $role,
+                    'role_id' => $roleIds[$role] ?? null,
+                    'department_id' => $department?->id,
+                    'status' => $status,
+                    'password' => Hash::make($usedDefaultPassword ? $identifier : $password),
+                ]);
+            });
+
+            return ['used_default_password' => $usedDefaultPassword];
+        }
+
+        if ($role === 'lecturer') {
+            if ($departmentName === '') {
+                throw ValidationException::withMessages([
+                    'department' => ['Department is required for lecturer imports.'],
+                ]);
+            }
+
+            DB::transaction(function () use (
+                $identifier,
+                $firstName,
+                $lastName,
+                $salutation,
+                $departmentName,
+                $email,
+                $password,
+                $usedDefaultPassword,
+                $status,
+                $department,
+                $role,
+                $roleIds
+            ): void {
+                Lecturer::updateOrCreate(
+                    ['lecturer_id' => $identifier],
+                    [
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'salutation' => $salutation !== '' ? $salutation : null,
+                        'department' => $departmentName,
+                    ]
+                );
+
+                User::create([
+                    'name' => trim($firstName.' '.$lastName),
+                    'email' => $email,
+                    'identifier' => $identifier,
+                    'role' => $role,
+                    'role_id' => $roleIds[$role] ?? null,
+                    'department_id' => $department?->id,
+                    'status' => $status,
+                    'password' => Hash::make($usedDefaultPassword ? $identifier : $password),
+                ]);
+            });
+
+            return ['used_default_password' => $usedDefaultPassword];
+        }
+
+        DB::transaction(function () use (
+            $identifier,
+            $firstName,
+            $lastName,
+            $salutation,
+            $departmentName,
+            $email,
+            $password,
+            $usedDefaultPassword,
+            $status,
+            $department,
+            $role,
+            $roleIds
+        ): void {
+            Staff::updateOrCreate(
+                ['staff_id' => $identifier],
+                [
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'salutation' => $salutation !== '' ? $salutation : null,
+                    'role' => 'admin',
+                    'department' => $departmentName !== '' ? $departmentName : null,
+                ]
+            );
+
+            User::create([
+                'name' => trim($firstName.' '.$lastName),
+                'email' => $email,
+                'identifier' => $identifier,
+                'role' => $role,
+                'role_id' => $roleIds[$role] ?? null,
+                'department_id' => $department?->id,
+                'status' => $status,
+                'password' => Hash::make($usedDefaultPassword ? $identifier : $password),
+            ]);
+        });
+
+        return ['used_default_password' => $usedDefaultPassword];
+    }
+
+    private function parseImportRows(string $path): array
+    {
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            throw ValidationException::withMessages([
+                'import_file' => ['Unable to read the uploaded CSV file.'],
+            ]);
+        }
+
+        try {
+            $headerRow = fgetcsv($handle);
+            if (! is_array($headerRow)) {
+                return [];
+            }
+
+            $headers = array_map(fn ($value) => $this->canonicalImportColumn($value), $headerRow);
+            $requiredHeaders = ['identifier', 'role', 'email'];
+            $missingHeaders = array_values(array_filter($requiredHeaders, fn ($header) => ! in_array($header, $headers, true)));
+
+            if (! in_array('first_name', $headers, true) && ! in_array('full_name', $headers, true)) {
+                $missingHeaders[] = 'first_name';
+            }
+
+            if ($missingHeaders !== []) {
+                throw ValidationException::withMessages([
+                    'import_file' => ['Missing required CSV headers: '.implode(', ', array_unique($missingHeaders)).'.'],
+                ]);
+            }
+
+            $rows = [];
+            $lineNumber = 2;
+
+            while (($columns = fgetcsv($handle)) !== false) {
+                $columns = array_pad($columns, count($headers), null);
+                $row = [];
+
+                foreach ($headers as $index => $header) {
+                    if ($header === '') {
+                        continue;
+                    }
+
+                    $row[$header] = trim((string) ($columns[$index] ?? ''));
+                }
+
+                if (collect($row)->every(fn ($value) => trim((string) $value) === '')) {
+                    $lineNumber++;
+                    continue;
+                }
+
+                $rows[$lineNumber] = $row;
+                $lineNumber++;
+            }
+
+            return $rows;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    private function canonicalImportColumn(mixed $value): string
+    {
+        $normalized = trim((string) preg_replace('/^\xEF\xBB\xBF/', '', trim((string) $value)));
+        $normalized = Str::of($normalized)
+            ->lower()
+            ->replace(['-', ' '], '_')
+            ->value();
+
+        return [
+            'university_id' => 'identifier',
+            'user_id' => 'identifier',
+            'reg_number' => 'identifier',
+            'lecturer_id' => 'identifier',
+            'staff_id' => 'identifier',
+            'system_role' => 'role',
+            'name' => 'full_name',
+        ][$normalized] ?? $normalized;
+    }
+
+    private function resolveImportNameParts(array $row): array
+    {
+        $firstName = $this->optionalImportValue($row, 'first_name');
+        $lastName = $this->optionalImportValue($row, 'last_name');
+        $fullName = $this->optionalImportValue($row, 'full_name');
+
+        if (($firstName === '' || $lastName === '') && $fullName !== '') {
+            $parts = preg_split('/\s+/', $fullName, 2);
+            $firstName = $firstName !== '' ? $firstName : trim((string) ($parts[0] ?? ''));
+            $lastName = $lastName !== '' ? $lastName : trim((string) ($parts[1] ?? ''));
+        }
+
+        if ($firstName === '' || $lastName === '') {
+            throw ValidationException::withMessages([
+                'name' => ['Both first_name and last_name are required for imported users.'],
+            ]);
+        }
+
+        return [$firstName, $lastName];
+    }
+
+    private function requiredImportValue(array $row, string $key, string $label): string
+    {
+        $value = $this->optionalImportValue($row, $key);
+        if ($value === '') {
+            throw ValidationException::withMessages([
+                $key => ["{$label} is required."],
+            ]);
+        }
+
+        return $value;
+    }
+
+    private function optionalImportValue(array $row, string $key): string
+    {
+        return trim((string) ($row[$key] ?? ''));
+    }
+
+    private function normalizeImportRole(string $role): string
+    {
+        $normalized = Str::lower(trim($role));
+
+        if (! in_array($normalized, ['student', 'lecturer', 'admin'], true)) {
+            throw ValidationException::withMessages([
+                'role' => ['role must be one of: student, lecturer, admin.'],
+            ]);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeImportYear(string $year): int
+    {
+        if (! ctype_digit($year)) {
+            throw ValidationException::withMessages([
+                'year' => ['year must be a whole number.'],
+            ]);
+        }
+
+        return (int) $year;
+    }
+
+    private function resolveImportDepartment(string $departmentName, string $facultyName): ?Department
+    {
+        if ($departmentName === '') {
+            return null;
+        }
+
+        $department = Department::query()->firstOrCreate(
+            ['name' => $departmentName],
+            ['faculty' => $facultyName !== '' ? $facultyName : null]
+        );
+
+        if (($department->faculty === null || trim((string) $department->faculty) === '') && $facultyName !== '') {
+            $department->faculty = $facultyName;
+            $department->save();
+        }
+
+        return $department;
+    }
+
+    private function importSummaryMessage(int $createdCount, int $skippedCount, int $errorCount): string
+    {
+        $parts = [];
+
+        if ($createdCount > 0) {
+            $parts[] = "{$createdCount} user(s) imported";
+        }
+
+        if ($skippedCount > 0) {
+            $parts[] = "{$skippedCount} skipped";
+        }
+
+        if ($errorCount > 0) {
+            $parts[] = "{$errorCount} row(s) failed validation";
+        }
+
+        if ($parts === []) {
+            return 'No users were imported.';
+        }
+
+        return ucfirst(implode(', ', $parts)).'.';
+    }
+
+    private function normalizeDepartmentSelection(string $departmentName): string
+    {
+        $normalized = trim($departmentName);
+
+        return $normalized === 'None / Not Applicable' ? '' : $normalized;
+    }
+
+    private function normalizeAccountStatus(string $status): string
+    {
+        $normalized = Str::lower(trim(str_replace('_', ' ', $status)));
+
+        return match ($normalized) {
+            'inactive', 'disabled', 'suspended' => 'inactive',
+            'pending', 'pending invite' => 'pending invite',
+            default => 'active',
+        };
+    }
+
+    private function effectiveAccountStatus(string $status, bool $manualApprovalRequired): string
+    {
+        if ($manualApprovalRequired && $status === 'active') {
+            return 'pending invite';
+        }
+
+        return $status;
+    }
+
+    private function buildUserCreateAdminNotice(
+        bool $sendWelcomeEmail,
+        bool $welcomeEmailSent,
+        bool $requirePasswordReset,
+        string $effectiveStatus,
+        string $identifier,
+    ): array {
+        $statusNote = match ($effectiveStatus) {
+            'pending invite' => "{$identifier} is waiting for manual approval before sign-in is enabled.",
+            'inactive' => "{$identifier} is inactive and cannot sign in until the account is reactivated.",
+            default => '',
+        };
+
+        if ($sendWelcomeEmail && $welcomeEmailSent) {
+            $deliveryNote = $requirePasswordReset
+                ? 'A welcome email was sent with the password setup link.'
+                : 'A welcome email was sent with the account onboarding details.';
+
+            return [trim($deliveryNote.' '.$statusNote), 'success'];
+        }
+
+        if ($sendWelcomeEmail && ! $welcomeEmailSent) {
+            $recoveryNote = $requirePasswordReset
+                ? "The account was created, but the welcome email could not be sent. Ask the user to open Forgot Password with University ID {$identifier} to set a password."
+                : "The account was created, but the welcome email could not be sent. Temporary password defaults to University ID {$identifier}.";
+
+            return [trim($recoveryNote.' '.$statusNote), 'warning'];
+        }
+
+        $manualNote = $requirePasswordReset
+            ? "No welcome email was sent. Ask the user to use Forgot Password with University ID {$identifier} before first sign-in."
+            : "No welcome email was sent. Temporary password defaults to University ID {$identifier}.";
+
+        return [trim($manualNote.' '.$statusNote), 'warning'];
+    }
+
+    private function buildUserEditAdminNotice(
+        bool $sendAccountEmail,
+        bool $accountEmailSent,
+        bool $requirePasswordReset,
+        string $effectiveStatus,
+        string $identifier,
+    ): array {
+        $statusNote = match ($effectiveStatus) {
+            'pending invite' => "{$identifier} remains in pending invite until approval is completed.",
+            'inactive' => "{$identifier} is inactive and cannot sign in until reactivated.",
+            default => '',
+        };
+
+        if ($sendAccountEmail && $accountEmailSent) {
+            return [trim('Updated account email sent successfully. '.$statusNote), 'success'];
+        }
+
+        if ($sendAccountEmail && ! $accountEmailSent) {
+            $fallback = $requirePasswordReset
+                ? "The user was updated, but the account email could not be sent. Ask them to use Forgot Password with University ID {$identifier}."
+                : "The user was updated, but the account email could not be sent.";
+
+            return [trim($fallback.' '.$statusNote), 'warning'];
+        }
+
+        if ($requirePasswordReset) {
+            return [trim("Password reset will be required for {$identifier} on the next sign-in. ".$statusNote), 'warning'];
+        }
+
+        return [trim($statusNote), 'warning'];
+    }
+
+    private function guardSelfAdministration(?User $actor, User $target, string $nextRole, string $nextStatus): void
+    {
+        if (! $actor || $actor->id !== $target->id) {
+            return;
+        }
+
+        if ($nextRole !== 'admin') {
+            throw ValidationException::withMessages([
+                'role' => ['You cannot remove your own admin access from the account you are currently using.'],
+            ]);
+        }
+
+        if ($nextStatus !== 'active') {
+            throw ValidationException::withMessages([
+                'status' => ['You cannot change your own account status away from active in the current session.'],
+            ]);
+        }
+    }
+
+    private function syncUserProfileForRole(
+        string $identifier,
+        string $role,
+        string $firstName,
+        string $lastName,
+        string $departmentName,
+        string $facultyName,
+        string $course,
+        ?int $year,
+        string $salutation,
+    ): void {
+        if ($role === 'student') {
+            Student::updateOrCreate(
+                ['reg_number' => $identifier],
+                [
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'course' => $course,
+                    'year' => $year,
+                    'department' => $departmentName !== '' ? $departmentName : null,
+                    'faculty' => $facultyName !== '' ? $facultyName : null,
+                ]
+            );
+
+            return;
+        }
+
+        if ($role === 'lecturer') {
+            Lecturer::updateOrCreate(
+                ['lecturer_id' => $identifier],
+                [
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'salutation' => $salutation !== '' ? $salutation : null,
+                    'department' => $departmentName,
+                ]
+            );
+
+            return;
+        }
+
+        Staff::updateOrCreate(
+            ['staff_id' => $identifier],
+            [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'salutation' => $salutation !== '' ? $salutation : null,
+                'role' => 'admin',
+                'department' => $departmentName !== '' ? $departmentName : null,
+            ]
+        );
+    }
+
+    private function removeStaleProfiles(string $identifier, string $keepRole): void
+    {
+        if ($keepRole !== 'student') {
+            Student::query()->where('reg_number', $identifier)->delete();
+        }
+
+        if ($keepRole !== 'lecturer') {
+            Lecturer::query()->where('lecturer_id', $identifier)->delete();
+        }
+
+        if ($keepRole !== 'admin') {
+            Staff::query()->where('staff_id', $identifier)->delete();
+        }
+    }
+
+    private function userDeletionBlockers(User $user): array
+    {
+        $identifier = trim((string) $user->identifier);
+        $blockers = [];
+
+        if (Dispute::query()->where('student_id', $identifier)->exists()) {
+            $blockers[] = 'The account has submitted dispute records.';
+        }
+
+        if (Dispute::query()->where('assigned_to', $identifier)->exists()) {
+            $blockers[] = 'The account is referenced in dispute assignments.';
+        }
+
+        if (DisputeLog::query()->where('performed_by', $identifier)->exists()) {
+            $blockers[] = 'The account appears in dispute timeline history.';
+        }
+
+        if (Attachment::query()->where('uploaded_by', $identifier)->exists()) {
+            $blockers[] = 'The account uploaded dispute evidence.';
+        }
+
+        if (ActivityLog::query()->where('user_id', $user->id)->exists()) {
+            $blockers[] = 'The account is linked to admin audit activity.';
+        }
+
+        return $blockers;
+    }
+
+    private function sendUserAccountEmail(User $user, bool $forcePasswordReset = false): bool
+    {
+        try {
+            Mail::to($user->email)->send(
+                new AdminUserWelcomeMail(
+                    recipientName: trim((string) $user->name),
+                    identifier: trim((string) $user->identifier),
+                    roleLabel: Str::title(trim((string) $user->role)),
+                    portalUrl: route('portal.auth'),
+                    passwordSetupUrl: route('portal.password.forgot', ['identifier' => $user->identifier]),
+                    statusLabel: Str::title(str_replace('_', ' ', $this->normalizeAccountStatus((string) $user->status))),
+                    requirePasswordReset: $forcePasswordReset ? true : (bool) $user->require_password_reset,
+                    manualApprovalRequired: (bool) $user->manual_approval_required,
+                )
+            );
+
+            $user->forceFill([
+                'welcome_email_sent_at' => now(),
+                'require_password_reset' => $forcePasswordReset ? true : $user->require_password_reset,
+            ])->save();
+
+            return true;
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+
     private function displayNameFor(User $user, mixed $profile): string
     {
         if ($profile) {
@@ -118,8 +1264,6 @@ class AdminController extends Controller
 
     private function normalizeStatus(?string $status): string
     {
-        $normalized = Str::lower(trim((string) $status));
-
-        return in_array($normalized, ['inactive', 'disabled', 'suspended'], true) ? 'inactive' : 'active';
+        return $this->normalizeAccountStatus((string) $status);
     }
 }

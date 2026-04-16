@@ -8,6 +8,16 @@
 @section('content')
 @php($ticket = $adminManageTicket ?? [])
 
+<div class="ticket-print-header print-only">
+    <div class="ticket-print-brand">Grade Dispute System</div>
+    <h1>Case File</h1>
+    <div class="ticket-print-meta">
+        <span>Ticket: {{ $ticket['ticket_number'] ?? 'Not available' }}</span>
+        <span>Printed: <span id="adminTicketPrintTimestamp">{{ now('Africa/Nairobi')->format('M j, Y g:i A') }}</span></span>
+    </div>
+    <p>{{ $ticket['page_summary'] ?? 'Review the case details, status, and routing context for this dispute.' }}</p>
+</div>
+
 <div class="page-header flex-header ticket-page-header" data-ticket-number="{{ $ticket['ticket_number'] ?? 'Ticket' }}">
     <div class="header-text">
         <span class="eyebrow">Admin / Manage Tickets / {{ $ticket['ticket_number'] ?? 'Ticket' }}</span>
@@ -19,7 +29,7 @@
             @endforeach
         </div>
     </div>
-    <div class="header-actions">
+    <div class="header-actions no-print">
         <a href="{{ route('portal.admin.disputes') }}" class="btn btn-outline btn-surface">
             <span class="material-symbols-outlined">arrow_back</span> Back to Tickets
         </a>
@@ -98,7 +108,7 @@
             </div>
         </section>
 
-        <section class="detail-card">
+        <section class="detail-card no-print">
             <div class="detail-card-header">Administrative Actions</div>
             <div class="detail-card-body">
                 <div class="form-group">
@@ -113,7 +123,7 @@
                                 <option value="">No lecturer mappings available</option>
                             @endforelse
                         </select>
-                        <button class="btn btn-outline" data-admin-ticket-action="Lecturer reassignment" type="button">Update</button>
+                        <button class="btn btn-outline" id="adminTicketLecturerUpdateBtn" type="button">Update</button>
                     </div>
                 </div>
 
@@ -127,7 +137,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <button class="btn btn-outline" data-admin-ticket-action="Status override" type="button">Apply</button>
+                        <button class="btn btn-outline" id="adminTicketStatusApplyBtn" type="button">Apply</button>
                     </div>
                 </div>
 
@@ -141,13 +151,13 @@
                                 </option>
                             @endforeach
                         </select>
-                        <button class="btn btn-outline" data-admin-ticket-action="Routing update" type="button">Route</button>
+                        <button class="btn btn-outline" id="adminTicketRoutingBtn" type="button">Route</button>
                     </div>
                 </div>
 
                 <div class="form-actions ticket-inline-actions">
                     <button class="btn btn-outline" data-admin-ticket-action="Clarification request" type="button">Request Clarification</button>
-                    <button class="btn btn-primary" data-admin-ticket-action="Admin change set" type="button">Apply Changes</button>
+                    <button class="btn btn-primary" id="adminTicketApplyChangesBtn" type="button">Apply Changes</button>
                 </div>
             </div>
         </section>
@@ -158,10 +168,11 @@
                 <div class="form-group form-group-compact">
                     <label for="adminInternalNotes">Notes visible to admins only</label>
                     <textarea id="adminInternalNotes" class="form-control" rows="6">{{ $ticket['internal_notes'] ?? '' }}</textarea>
+                    <div class="ticket-print-notes print-only">{{ $ticket['internal_notes'] ?? '' }}</div>
                     <span class="form-text">Use this area for routing decisions, policy references, and internal follow-up reminders.</span>
                 </div>
 
-                <div class="form-actions ticket-inline-actions">
+                <div class="form-actions ticket-inline-actions no-print">
                     <button class="btn btn-outline" data-admin-ticket-action="Internal follow-up" type="button">Add Follow-up</button>
                     <button class="btn btn-dark" id="adminTicketSaveNotesBtn" type="button">Save Notes</button>
                 </div>

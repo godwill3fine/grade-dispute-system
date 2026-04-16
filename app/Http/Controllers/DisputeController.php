@@ -14,8 +14,11 @@ use App\Models\User;
 use App\Services\ActivityLogService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DisputeController extends Controller
 {
@@ -330,6 +333,206 @@ class DisputeController extends Controller
                 Dispute::orderBy('created_at', 'desc')->get()
             )->all()
         );
+    }
+
+    public function adminUpdateTicket(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['nullable', Rule::in(['pending', 'under_review', 'resolved', 'escalated'])],
+            'routing_stage' => ['nullable', Rule::in(['Lecturer Review', 'Department Board', 'Dean Review', 'Academic Appeals Panel'])],
+            'lecturer_id' => ['nullable', 'string', 'exists:lecturers,lecturer_id'],
+        ]);
+
+        $dispute = Dispute::find($id);
+        if (! $dispute) {
+            return response()->json(['error' => 'Dispute not found'], 404);
+        }
+
+        $performedBy = $this->actorIdentifier($request);
+        if (! is_string($performedBy) || trim($performedBy) === '') {
+            return response()->json(['error' => 'performed_by is required'], 422);
+        }
+
+        $statusInput = isset($validated['status'])
+            ? trim((string) $validated['status'])
+            : null;
+        $lecturerId = isset($validated['lecturer_id'])
+            ? trim((string) $validated['lecturer_id'])
+            : null;
+        $routingStage = isset($validated['routing_stage'])
+            ? trim((string) $validated['routing_stage'])
+            : ($lecturerId !== null && $lecturerId !== '' ? 'Lecturer Review' : null);
+
+        if (($statusInput === null || $statusInput === '') && ($routingStage === null || $routingStage === '')) {
+            return response()->json(['error' => 'No ticket updates were provided.'], 422);
+        }
+
+        $oldStatus = trim((string) ($dispute->status ?? 'pending'));
+        $oldAssignedTo = trim((string) ($dispute->assigned_to ?? ''));
+        $oldAssignedRole = trim((string) ($dispute->assigned_role ?? ''));
+        $oldStage = $this->defaultAdminRoutingStage($dispute);
+
+        $newStatus = $oldStatus;
+        $newAssignedTo = $oldAssignedTo;
+        $newAssignedRole = $oldAssignedRole;
+        $newStage = trim((string) ($dispute->assignment_name ?? ''));
+        $routingReason = null;
+
+        if (is_string($routingStage) && $routingStage !== '') {
+            $resolvedRouting = $this->resolveAdminRoutingSelection($dispute, $routingStage, $lecturerId, $performedBy);
+            $newAssignedTo = $resolvedRouting['assigned_to'];
+            $newAssignedRole = $resolvedRouting['assigned_role'];
+            $newStage = $resolvedRouting['stage'];
+            $routingReason = $resolvedRouting['reason'];
+
+            if ($statusInput === null || $statusInput === '') {
+                $newStatus = $resolvedRouting['status'];
+            }
+        }
+
+        if (is_string($statusInput) && $statusInput !== '') {
+            $newStatus = $statusInput;
+        }
+
+        $statusChanged = $newStatus !== $oldStatus;
+        $assigneeChanged = $newAssignedTo !== $oldAssignedTo || $newAssignedRole !== $oldAssignedRole;
+        $stageChanged = is_string($routingStage) && $routingStage !== '' && $newStage !== $oldStage;
+
+        if (! $statusChanged && ! $assigneeChanged && ! $stageChanged) {
+            return response()->json([
+                'changed' => false,
+                'message' => 'No ticket changes were applied.',
+            ]);
+        }
+
+        DB::transaction(function () use (
+            $dispute,
+            $performedBy,
+            $oldStatus,
+            $oldAssignedTo,
+            $oldAssignedRole,
+            $oldStage,
+            $newStatus,
+            $newAssignedTo,
+            $newAssignedRole,
+            $newStage,
+            $routingReason,
+            $statusChanged,
+            $assigneeChanged,
+            $stageChanged
+        ) {
+            $dispute->status = $newStatus;
+            $dispute->assigned_to = $newAssignedTo;
+            $dispute->assigned_role = $newAssignedRole;
+
+            if ($newStage !== '') {
+                $dispute->assignment_name = $newStage;
+            }
+
+            if ($statusChanged) {
+                $dispute->resolved_at = $newStatus === 'resolved' ? now() : null;
+            }
+
+            if ($newStatus === 'escalated' && $oldStatus !== 'escalated') {
+                $dispute->escalated_at = now();
+                $dispute->escalation_level = max(1, (int) ($dispute->escalation_level ?? 0) + 1);
+            }
+
+            if ($routingReason !== null && trim($routingReason) !== '') {
+                $dispute->escalation_reason = $routingReason;
+            }
+
+            $dispute->save();
+
+            if ($stageChanged || $assigneeChanged) {
+                $routingComment = collect([
+                    $stageChanged ? 'Routing moved from '.$oldStage.' to '.$newStage.'.' : null,
+                    $assigneeChanged
+                        ? 'Assignment updated from '
+                            .$this->formatAssignmentSummary($oldAssignedTo, $oldAssignedRole)
+                            .' to '
+                            .$this->formatAssignmentSummary($newAssignedTo, $newAssignedRole)
+                            .'.'
+                        : null,
+                ])
+                    ->filter()
+                    ->implode(' ');
+
+                $routingAction = $newAssignedRole === 'lecturer' && $assigneeChanged
+                    ? 'Lecturer Reassigned'
+                    : 'Routing Updated';
+
+                DisputeLog::create([
+                    'dispute_id' => $dispute->id,
+                    'action' => $routingAction,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus,
+                    'comment' => $routingComment,
+                    'performed_by' => $performedBy,
+                ]);
+            }
+
+            if ($statusChanged) {
+                DisputeLog::create([
+                    'dispute_id' => $dispute->id,
+                    'action' => 'Status Updated',
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus,
+                    'comment' => 'Status changed from '.$oldStatus.' to '.$newStatus.'.',
+                    'performed_by' => $performedBy,
+                ]);
+            }
+
+            $activitySummary = collect([
+                $stageChanged ? 'Stage '.$oldStage.' -> '.$newStage : null,
+                $assigneeChanged
+                    ? 'Assignee '.$this->formatAssignmentSummary($oldAssignedTo, $oldAssignedRole)
+                        .' -> '
+                        .$this->formatAssignmentSummary($newAssignedTo, $newAssignedRole)
+                    : null,
+                $statusChanged ? 'Status '.$oldStatus.' -> '.$newStatus : null,
+            ])
+                ->filter()
+                ->implode('; ');
+
+            ActivityLogService::log(
+                $performedBy,
+                'Admin Updated Ticket',
+                'dispute',
+                $dispute->id,
+                $activitySummary !== '' ? $activitySummary : 'Admin updated dispute '.$dispute->ticket_number
+            );
+
+            NotificationService::notify(
+                $dispute->student_id,
+                'Dispute Updated',
+                'Your dispute '.$dispute->ticket_number.' was updated by admin.',
+                '/portal/student/disputes/'.$dispute->id,
+                $dispute->id
+            );
+
+            if (($stageChanged || $assigneeChanged) && $newAssignedTo !== '') {
+                NotificationService::notify(
+                    $newAssignedTo,
+                    'Dispute Assignment Updated',
+                    'Ticket '.$dispute->ticket_number.' was routed to you for '.$newStage.'.',
+                    '/portal/admin/disputes/'.$dispute->id,
+                    $dispute->id
+                );
+            }
+        });
+
+        return response()->json([
+            'changed' => true,
+            'message' => 'Ticket updated successfully.',
+            'data' => [
+                'id' => $dispute->id,
+                'status' => $dispute->status,
+                'assigned_to' => $dispute->assigned_to,
+                'assigned_role' => $dispute->assigned_role,
+                'routing_stage' => $dispute->assignment_name,
+            ],
+        ]);
     }
 
     public function escalatedDisputes()
@@ -679,6 +882,123 @@ class DisputeController extends Controller
         }
 
         return trim($role);
+    }
+
+    private function resolveAdminRoutingSelection(
+        Dispute $dispute,
+        string $routingStage,
+        ?string $lecturerId,
+        string $adminIdentifier
+    ): array {
+        return match ($routingStage) {
+            'Lecturer Review' => $this->resolveLecturerRoutingSelection($dispute, $lecturerId),
+            'Department Board' => $this->resolveDepartmentBoardRoutingSelection($dispute),
+            'Dean Review', 'Academic Appeals Panel' => [
+                'assigned_to' => $adminIdentifier,
+                'assigned_role' => 'admin',
+                'stage' => $routingStage,
+                'status' => 'escalated',
+                'reason' => 'Manually routed to '.$routingStage.' by admin.',
+            ],
+            default => throw ValidationException::withMessages([
+                'routing_stage' => ['The selected routing stage is not supported.'],
+            ]),
+        };
+    }
+
+    private function resolveLecturerRoutingSelection(Dispute $dispute, ?string $lecturerId): array
+    {
+        $selectedLecturerId = is_string($lecturerId) ? trim($lecturerId) : '';
+
+        if ($selectedLecturerId === '') {
+            $currentAssignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
+            $currentAssignedTo = trim((string) ($dispute->assigned_to ?? ''));
+
+            if ($currentAssignedRole === 'lecturer' && $currentAssignedTo !== '') {
+                $selectedLecturerId = $currentAssignedTo;
+            } else {
+                $selectedLecturerId = trim((string) (
+                    UnitLecturer::query()
+                        ->where('unit_code', $dispute->unit_code)
+                        ->value('lecturer_id')
+                ));
+            }
+        }
+
+        if ($selectedLecturerId === '') {
+            throw ValidationException::withMessages([
+                'lecturer_id' => ['Select a lecturer before routing this ticket to lecturer review.'],
+            ]);
+        }
+
+        return [
+            'assigned_to' => $selectedLecturerId,
+            'assigned_role' => 'lecturer',
+            'stage' => 'Lecturer Review',
+            'status' => 'under_review',
+            'reason' => 'Manually routed to Lecturer Review by admin.',
+        ];
+    }
+
+    private function resolveDepartmentBoardRoutingSelection(Dispute $dispute): array
+    {
+        $currentAssignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
+        $currentAssignedTo = trim((string) ($dispute->assigned_to ?? ''));
+
+        if (in_array($currentAssignedRole, ['hod', 'exam_officer'], true) && $currentAssignedTo !== '') {
+            return [
+                'assigned_to' => $currentAssignedTo,
+                'assigned_role' => $currentAssignedRole,
+                'stage' => 'Department Board',
+                'status' => 'escalated',
+                'reason' => 'Manually routed to Department Board by admin.',
+            ];
+        }
+
+        $staffMember = Staff::query()
+            ->whereIn('role', ['hod', 'exam_officer'])
+            ->orderByRaw("CASE role WHEN 'hod' THEN 0 ELSE 1 END")
+            ->first();
+
+        if (! $staffMember) {
+            throw ValidationException::withMessages([
+                'routing_stage' => ['No HOD or exam officer is available for department-board routing.'],
+            ]);
+        }
+
+        return [
+            'assigned_to' => $staffMember->staff_id,
+            'assigned_role' => trim((string) $staffMember->role),
+            'stage' => 'Department Board',
+            'status' => 'escalated',
+            'reason' => 'Manually routed to Department Board by admin.',
+        ];
+    }
+
+    private function defaultAdminRoutingStage(Dispute $dispute): string
+    {
+        $statusKey = Str::lower(trim((string) ($dispute->status ?? 'pending')));
+        $storedStage = trim((string) ($dispute->assignment_name ?? ''));
+        $assignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
+
+        return match (true) {
+            $statusKey === 'resolved' => 'Resolved',
+            $storedStage !== '' => $storedStage,
+            $statusKey === 'escalated' => 'Dean Review',
+            $assignedRole === 'lecturer' => 'Lecturer Review',
+            in_array($assignedRole, ['hod', 'exam_officer'], true) => 'Department Board',
+            $assignedRole === 'admin' => 'Dean Review',
+            default => 'Department Board',
+        };
+    }
+
+    private function formatAssignmentSummary(string $identifier, string $role): string
+    {
+        $normalizedRole = trim(str_replace('_', ' ', $role));
+        $roleLabel = $normalizedRole !== '' ? Str::title($normalizedRole) : 'Unassigned';
+        $idLabel = trim($identifier) !== '' ? trim($identifier) : 'none';
+
+        return $roleLabel.' ('.$idLabel.')';
     }
 
     private function decorateDisputes($disputes)

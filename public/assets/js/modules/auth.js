@@ -27,6 +27,18 @@ function prefillLoginIdentifier() {
     }
 }
 
+function prefillForgotPasswordIdentifier() {
+    const identifier = parseUrlParam('identifier');
+    if (!identifier) {
+        return;
+    }
+
+    const input = document.getElementById('forgotIdentifier');
+    if (input) {
+        input.value = identifier;
+    }
+}
+
 async function handleLogin(event) {
     event.preventDefault();
 
@@ -43,6 +55,12 @@ async function handleLogin(event) {
         }, 450);
     } catch (error) {
         feedbackText('#loginFeedback', error.message ?? 'Unable to login.');
+
+        if (error.status === 409 && error.payload?.next) {
+            window.setTimeout(() => {
+                window.location.assign(error.payload.next);
+            }, 900);
+        }
     }
 }
 
@@ -189,6 +207,7 @@ export function initAuthSignupPasswordPage() {
 }
 
 export function initAuthForgotPasswordPage() {
+    prefillForgotPasswordIdentifier();
     document.getElementById('forgotPasswordIdentifyForm')?.addEventListener('submit', handleForgotPassword);
 }
 
