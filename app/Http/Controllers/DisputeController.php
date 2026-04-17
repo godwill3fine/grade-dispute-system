@@ -160,12 +160,17 @@ class DisputeController extends Controller
         $actorIdentifier = $this->actorIdentifier($request);
         $actorRole = $this->actorRole($request);
 
-        if ($actorRole === 'lecturer' && $actorIdentifier !== null && $actorIdentifier !== $lecturer_id) {
+        if (in_array($actorRole, ['lecturer', 'staff'], true) && $actorIdentifier !== null && $actorIdentifier !== $lecturer_id) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $disputes = Dispute::where('assigned_to', $lecturer_id)
-            ->where('assigned_role', 'lecturer')
+        $query = Dispute::where('assigned_to', $lecturer_id);
+
+        if ($actorRole === 'lecturer') {
+            $query->where('assigned_role', 'lecturer');
+        }
+
+        $disputes = $query
             ->orderByDesc('created_at')
             ->get();
 
@@ -192,7 +197,7 @@ class DisputeController extends Controller
         }
 
         $actorRole = $this->actorRole($request);
-        if ($actorRole === 'lecturer' && $dispute->assigned_to !== $performedBy) {
+        if (in_array($actorRole, ['lecturer', 'staff'], true) && $dispute->assigned_to !== $performedBy) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
@@ -250,7 +255,7 @@ class DisputeController extends Controller
         }
 
         $actorRole = $this->actorRole($request);
-        if ($actorRole === 'lecturer' && $dispute->assigned_to !== $performedBy) {
+        if (in_array($actorRole, ['lecturer', 'staff'], true) && $dispute->assigned_to !== $performedBy) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
@@ -785,7 +790,7 @@ class DisputeController extends Controller
         $actorIdentifier = $this->actorIdentifier($request);
         $actorRole = $this->actorRole($request);
 
-        if ($actorRole === 'lecturer' && $actorIdentifier !== null && $actorIdentifier !== $lecturer_id) {
+        if (in_array($actorRole, ['lecturer', 'staff'], true) && $actorIdentifier !== null && $actorIdentifier !== $lecturer_id) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 

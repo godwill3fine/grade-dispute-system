@@ -13,6 +13,8 @@
         ? $dashboardHeadline
         : $pageHeadline;
     $role = auth()->user()->role ?? '';
+    $settingsRole = in_array($role, ['lecturer', 'staff'], true) ? 'lecturer' : $role;
+    $portalUserMeta = is_array($portalUserMeta ?? null) ? $portalUserMeta : [];
     $settingsMenus = [
         'student' => [
             ['route' => 'portal.student.profile', 'label' => 'View Profile', 'icon' => 'person'],
@@ -27,8 +29,13 @@
             ['route' => 'portal.admin.settings', 'label' => 'System Settings', 'icon' => 'tune'],
         ],
     ];
-    $settingsMenu = $settingsMenus[$role] ?? [];
-    $settingsRoleLabel = $role !== '' ? Str::headline($role) : 'User';
+    $settingsMenu = $settingsMenus[$settingsRole] ?? [];
+    $staffRoleLabel = trim((string) ($portalUserMeta['staff_role_label'] ?? ''));
+    $settingsRoleLabel = $role === 'staff'
+        ? ($staffRoleLabel !== ''
+            ? (Str::endsWith($staffRoleLabel, 'Reviewer') ? $staffRoleLabel : $staffRoleLabel.' Reviewer')
+            : 'Staff Reviewer')
+        : ($role !== '' ? Str::headline($role) : 'User');
 @endphp
 
 <header class="navbar">

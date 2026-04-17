@@ -69,7 +69,7 @@ Route::middleware(['role:student'])->group(function () {
         ->where('student_id', '.*');
 });
 
-Route::middleware(['role:lecturer,admin'])->group(function () {
+Route::middleware(['role:lecturer,staff,admin'])->group(function () {
     Route::get('/lecturer/disputes/{lecturer_id}', [DisputeController::class, 'lecturerDisputes'])
         ->where('lecturer_id', '.*');
     Route::post('/dispute/respond', [DisputeController::class, 'respond']);
@@ -79,7 +79,7 @@ Route::middleware(['role:lecturer,admin'])->group(function () {
         ->where('lecturer_id', '.*');
 });
 
-Route::middleware(['role:student,lecturer,admin'])->group(function () {
+Route::middleware(['role:student,lecturer,staff,admin'])->group(function () {
     Route::get('/dispute/logs/{dispute_id}', [DisputeController::class, 'disputeLogs']);
     Route::get('/dispute/{id}/timeline', [DisputeController::class, 'timeline']);
     Route::get('/dispute/attachments/{id}', [DisputeController::class, 'disputeAttachments']);

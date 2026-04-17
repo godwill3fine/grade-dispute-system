@@ -5,9 +5,11 @@
 @section('page_title', 'Assigned Disputes')
 
 @section('content')
+@include('lecturer.partials.staff-review-banner')
+
 <div class="table-container">
     <div class="table-controls lecturer-controls">
-        <h3 class="section-title">Lecturer Work Queue</h3>
+        <h3 class="section-title">{{ ($portalUserMeta['is_staff_reviewer'] ?? false) ? 'Review Queue' : 'Lecturer Work Queue' }}</h3>
         <select class="status-filter" id="lecturerStatusFilter">
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>

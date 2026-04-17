@@ -7,7 +7,7 @@
     $isAuthPage = Str::startsWith($currentPageId, 'auth-');
     $roleStylesheet = match (auth()->user()->role ?? null) {
         'student' => 'student-pages.css',
-        'lecturer' => 'lecturer-pages.css',
+        'lecturer', 'staff' => 'lecturer-pages.css',
         'admin' => 'admin-pages.css',
         default => null,
     };

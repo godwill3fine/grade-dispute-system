@@ -5,6 +5,8 @@
 @section('page_title', 'Review History')
 
 @section('content')
+@include('lecturer.partials.staff-review-banner')
+
 <div class="page-header flex-header page-header-plain page-header-gap-lg">
     <div class="header-text"></div>
     <button class="btn btn-outline btn-surface" id="lecturerHistoryExport" type="button">

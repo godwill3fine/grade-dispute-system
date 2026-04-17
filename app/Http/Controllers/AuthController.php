@@ -66,25 +66,25 @@ class AuthController extends Controller
             'identifier' => 'required|string'
         ]);
 
-        $identifier = $request->identifier;
+        $identifier = trim((string) $request->identifier);
+        $user = User::where('identifier', $identifier)->first();
 
-        // Check student
-        if ($student = Student::find($identifier)) {
-            $role = 'student';
+        if ($user && in_array($user->role, ['student', 'lecturer', 'staff', 'admin'], true)) {
+            return response()->json([
+                'status' => 'existing_user',
+                'role' => $user->role,
+            ]);
         }
-        // Check lecturer
-        elseif ($lecturer = Lecturer::find($identifier)) {
-            $role = 'lecturer';
-        }
-        // Check staff
-        elseif ($staff = Staff::where('staff_id', $identifier)->first()) {
+
+        if (Staff::where('staff_id', $identifier)->exists()) {
             $role = 'staff';
+        } elseif (Lecturer::find($identifier)) {
+            $role = 'lecturer';
+        } elseif (Student::find($identifier)) {
+            $role = 'student';
         } else {
             return response()->json(['error' => 'User not found'], 404);
         }
-
-        // Check if account exists
-        $user = User::where('identifier', $identifier)->first();
 
         if (!$user) {
             return response()->json([

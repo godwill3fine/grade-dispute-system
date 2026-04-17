@@ -5,6 +5,8 @@
 @section('page_title', 'Lecturer Dashboard')
 
 @section('content')
+@include('lecturer.partials.staff-review-banner')
+
 <div class="stats-container stats-grid-4" id="lecturerMetricCards">
     <div class="stat-card">
         <span class="material-symbols-outlined stat-icon">description</span>
@@ -13,7 +15,7 @@
     </div>
     <div class="stat-card">
         <span class="material-symbols-outlined stat-icon">schedule</span>
-        <h4>Pending Review</h4>
+        <h4>{{ ($portalUserMeta['is_staff_reviewer'] ?? false) ? 'Escalated Review' : 'Pending Review' }}</h4>
         <span class="stat-value" data-metric="pending">0</span>
     </div>
     <div class="stat-card">
@@ -29,7 +31,7 @@
 </div>
 
 <div class="table-section-header">
-    <h2>Disputes requiring action</h2>
+    <h2>{{ ($portalUserMeta['is_staff_reviewer'] ?? false) ? 'Disputes requiring higher-level review' : 'Disputes requiring action' }}</h2>
     <div class="header-actions">
         <a href="{{ route('portal.lecturer.disputes') }}" class="btn btn-outline">
             <span class="material-symbols-outlined">open_in_new</span> Open Queue

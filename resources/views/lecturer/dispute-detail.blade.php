@@ -6,6 +6,8 @@
 @section('dispute_id', (string) $disputeId)
 
 @section('content')
+@include('lecturer.partials.staff-review-banner')
+
 <div class="details-grid">
     <div class="details-left">
         <section class="detail-card">

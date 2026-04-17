@@ -211,32 +211,32 @@ class FrontendController extends Controller
 
     public function lecturerDashboard(): View
     {
-        $this->ensureRole('lecturer');
+        $this->ensureRole('lecturer', 'staff');
 
-        return view('lecturer.dashboard');
+        return view('lecturer.dashboard', $this->buildLecturerPortalContext());
     }
 
     public function lecturerDisputes(): View
     {
-        $this->ensureRole('lecturer');
+        $this->ensureRole('lecturer', 'staff');
 
-        return view('lecturer.disputes');
+        return view('lecturer.disputes', $this->buildLecturerPortalContext());
     }
 
     public function lecturerHistory(): View
     {
-        $this->ensureRole('lecturer');
+        $this->ensureRole('lecturer', 'staff');
 
-        return view('lecturer.history');
+        return view('lecturer.history', $this->buildLecturerPortalContext());
     }
 
     public function lecturerDisputeDetail(int $id): View
     {
-        $this->ensureRole('lecturer');
+        $this->ensureRole('lecturer', 'staff');
 
         return view('lecturer.dispute-detail', [
             'disputeId' => $id,
-        ]);
+        ] + $this->buildLecturerPortalContext());
     }
 
     public function adminDashboard(): View
@@ -391,6 +391,29 @@ class FrontendController extends Controller
                 'time_zone_label' => 'East Africa Time (Nairobi)',
                 'last_sign_in' => $this->formatPortalTimestamp($user?->last_login, 'No sign-in history yet'),
                 'last_sync' => $this->formatPortalTimestamp($student?->updated_at ?? $user?->updated_at, 'No sync history yet'),
+            ],
+        ];
+    }
+
+    private function buildLecturerPortalContext(): array
+    {
+        $user = Auth::user();
+        $staffRole = '';
+
+        if ($user?->role === 'staff') {
+            $staffRole = trim((string) Staff::query()
+                ->where('staff_id', $user->identifier)
+                ->value('role'));
+        }
+
+        return [
+            'portalUserMeta' => [
+                'uses_lecturer_workspace' => in_array($user?->role, ['lecturer', 'staff'], true),
+                'is_staff_reviewer' => $user?->role === 'staff',
+                'staff_role' => $staffRole,
+                'staff_role_label' => $staffRole !== ''
+                    ? Str::title(str_replace('_', ' ', $staffRole))
+                    : 'Staff Reviewer',
             ],
         ];
     }
@@ -889,7 +912,7 @@ class FrontendController extends Controller
             return redirect()->route('portal.student.dashboard');
         }
 
-        if ($role === 'lecturer') {
+        if (in_array($role, ['lecturer', 'staff'], true)) {
             return redirect()->route('portal.lecturer.dashboard');
         }
 

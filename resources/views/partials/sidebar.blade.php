@@ -1,5 +1,6 @@
 @php
     $role = auth()->user()->role ?? '';
+    $navigationRole = in_array($role, ['lecturer', 'staff'], true) ? 'lecturer' : $role;
     $menus = [
         'student' => [
             ['route' => 'portal.student.dashboard', 'match' => 'portal.student.dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard'],
@@ -24,7 +25,7 @@
     ];
     $portalTitle = match ($role) {
         'student' => 'Student Portal',
-        'lecturer' => 'Lecturer Portal',
+        'lecturer', 'staff' => 'Lecturer Portal',
         'admin' => 'Admin Portal',
         default => 'Portal',
     };
@@ -44,7 +45,7 @@
         <div class="menu-title">
             <span class="text"><h3>Menu</h3></span>
         </div>
-        @foreach ($menus[$role] ?? [] as $item)
+        @foreach ($menus[$navigationRole] ?? [] as $item)
             @php
                 $matchPatterns = is_array($item['match']) ? $item['match'] : [$item['match']];
                 $isActive = request()->routeIs(...$matchPatterns);
