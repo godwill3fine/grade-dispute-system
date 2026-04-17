@@ -9,7 +9,7 @@
     <div class="header-text">
         <span class="eyebrow">Admin / Manage Users / Add User</span>
         <h1>Create New User</h1>
-        <p>Create student, lecturer, and administrator accounts using the same role-based structure as the rest of the portal.</p>
+        <p>Create student, lecturer, staff, and administrator accounts using the same role-based structure as the rest of the portal.</p>
     </div>
     <div class="header-actions">
         <a href="{{ route('portal.admin.users') }}" class="btn btn-outline btn-surface">
@@ -76,13 +76,13 @@
                         </div>
                         <div class="form-group">
                             <label for="adminUserDepartment">Department</label>
-                            <select id="adminUserDepartment" name="department" class="form-control" data-required-roles="lecturer">
+                            <select id="adminUserDepartment" name="department" class="form-control" data-required-roles="lecturer,staff">
                                 <option value="">None / Not Applicable</option>
                                 @foreach (($adminUserFormMeta['departments'] ?? []) as $department)
                                     <option value="{{ $department }}">{{ $department }}</option>
                                 @endforeach
                             </select>
-                            <span class="form-text" id="adminUserDepartmentHelp">Use a department for lecturers and support staff who need scoped access.</span>
+                            <span class="form-text" id="adminUserDepartmentHelp">Use a department for lecturers and staff reviewers who need scoped access.</span>
                         </div>
                     </div>
 
@@ -122,12 +122,27 @@
                         </div>
                     </div>
 
-                    <div class="add-user-role-fields" data-role-section="lecturer,admin" hidden>
+                    <div class="add-user-role-fields" data-role-section="staff" hidden>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminUserStaffRole">Staff Responsibility *</label>
+                                <select id="adminUserStaffRole" name="staff_role" class="form-control" data-required-roles="staff">
+                                    <option value="">Select a staff responsibility...</option>
+                                    @foreach (($adminUserFormMeta['staff_roles'] ?? []) as $staffRole)
+                                        <option value="{{ $staffRole }}">{{ ucwords(str_replace('_', ' ', $staffRole)) }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="form-text">Choose which elevated lecturer queue this staff account should receive.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="add-user-role-fields" data-role-section="lecturer,staff,admin" hidden>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="adminUserSalutation">Salutation</label>
                                 <input id="adminUserSalutation" name="salutation" type="text" class="form-control" placeholder="e.g. Dr., Prof., Mr., Ms.">
-                                <span class="form-text">Optional title used in lecturer and admin profiles.</span>
+                                <span class="form-text">Optional title used in lecturer, staff, and admin profiles.</span>
                             </div>
                         </div>
                     </div>
@@ -193,6 +208,13 @@
                     <div class="add-user-role-card">
                         <div class="user-avatar"><span class="material-symbols-outlined">shield</span></div>
                         <div class="user-info">
+                            <span class="user-name">Staff</span>
+                            <span class="user-meta">Uses the lecturer workspace with elevated HOD or Exam Officer dispute-review privileges.</span>
+                        </div>
+                    </div>
+                    <div class="add-user-role-card">
+                        <div class="user-avatar"><span class="material-symbols-outlined">shield</span></div>
+                        <div class="user-info">
                             <span class="user-name">Admin</span>
                             <span class="user-meta">Manages users, system settings, escalations, and case routing.</span>
                         </div>
@@ -211,7 +233,7 @@
                     </div>
                     <div class="add-user-note">
                         <h4>Confirm department mapping</h4>
-                        <p>Lecturer and support accounts should match the correct academic unit before access is granted.</p>
+                        <p>Lecturer and staff reviewer accounts should match the correct academic unit before access is granted.</p>
                     </div>
                     <div class="add-user-note">
                         <h4>Keep IDs unique</h4>

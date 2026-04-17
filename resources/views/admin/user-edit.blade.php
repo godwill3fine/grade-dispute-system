@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @php
-    $roleBadgeClass = ($adminUserEdit['role'] ?? '') === 'admin' ? 'role-dark' : 'role-outline';
+    $roleBadgeClass = in_array(($adminUserEdit['role'] ?? ''), ['staff', 'admin'], true) ? 'role-dark' : 'role-outline';
     $statusDotClass = match ($adminUserEdit['status'] ?? '') {
         'pending invite' => 'pending',
         'active' => 'active',
@@ -84,13 +84,13 @@
                         </div>
                         <div class="form-group">
                             <label for="adminUserEditDepartment">Department</label>
-                            <select id="adminUserEditDepartment" name="department" class="form-control" data-required-roles="lecturer">
+                            <select id="adminUserEditDepartment" name="department" class="form-control" data-required-roles="lecturer,staff">
                                 <option value="">None / Not Applicable</option>
                                 @foreach (($adminUserFormMeta['departments'] ?? []) as $department)
                                     <option value="{{ $department }}" @selected($department === ($adminUserEdit['department'] ?? ''))>{{ $department }}</option>
                                 @endforeach
                             </select>
-                            <span class="form-text" id="adminUserEditDepartmentHelp">Use a department for lecturers and scoped admin access.</span>
+                            <span class="form-text" id="adminUserEditDepartmentHelp">Use a department for lecturers and staff reviewers who need scoped access.</span>
                         </div>
                     </div>
 
@@ -126,7 +126,22 @@
                         </div>
                     </div>
 
-                    <div class="edit-user-role-fields" data-role-section="lecturer,admin" @if(!in_array(($adminUserEdit['role'] ?? ''), ['lecturer', 'admin'], true)) hidden @endif>
+                    <div class="edit-user-role-fields" data-role-section="staff" @if(($adminUserEdit['role'] ?? '') !== 'staff') hidden @endif>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminUserEditStaffRole">Staff Responsibility *</label>
+                                <select id="adminUserEditStaffRole" name="staff_role" class="form-control" data-required-roles="staff">
+                                    <option value="">Select a staff responsibility...</option>
+                                    @foreach (($adminUserFormMeta['staff_roles'] ?? []) as $staffRole)
+                                        <option value="{{ $staffRole }}" @selected($staffRole === ($adminUserEdit['staff_role'] ?? ''))>{{ ucwords(str_replace('_', ' ', $staffRole)) }}</option>
+                                    @endforeach
+                                </select>
+                                <span class="form-text">Choose which elevated lecturer queue this staff account should receive.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="edit-user-role-fields" data-role-section="lecturer,staff,admin" @if(!in_array(($adminUserEdit['role'] ?? ''), ['lecturer', 'staff', 'admin'], true)) hidden @endif>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="adminUserEditSalutation">Salutation</label>

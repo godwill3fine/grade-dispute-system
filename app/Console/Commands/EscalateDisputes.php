@@ -83,7 +83,7 @@ class EscalateDisputes extends Command
                         $hod->staff_id,
                         'Dispute Escalated',
                         'A dispute has been escalated to you. Ticket: ' . $dispute->ticket_number,
-                        '/staff/tickets/' . $dispute->id,
+                        '/portal/lecturer/disputes/' . $dispute->id,
                         $dispute->id
                     );
 
@@ -133,7 +133,7 @@ class EscalateDisputes extends Command
                         $admin->staff_id,
                         'Dispute Escalated to Admin',
                         'A dispute has been escalated to you. Ticket: ' . $dispute->ticket_number,
-                        '/admin/tickets/' . $dispute->id,
+                        '/portal/admin/disputes/' . $dispute->id,
                         $dispute->id
                     );
 

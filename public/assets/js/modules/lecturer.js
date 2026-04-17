@@ -16,7 +16,9 @@ let lecturerDisputeCache = [];
 let lecturerDashboardCourseFilter = 'all';
 
 const ACTIVE_LECTURER_STATUSES = ['pending', 'under_review'];
+const STAFF_ACTIVE_STATUSES = ['pending', 'under_review', 'escalated'];
 const LECTURER_HISTORY_STATUSES = ['resolved', 'rejected', 'escalated', 'closed'];
+const STAFF_HISTORY_STATUSES = ['resolved', 'rejected', 'closed'];
 
 function encodeRouteParam(value) {
     return encodeURIComponent(String(value ?? '').trim());
@@ -24,6 +26,18 @@ function encodeRouteParam(value) {
 
 function lecturerIdentifier() {
     return getCurrentUser()?.identifier ?? '';
+}
+
+function isStaffReviewer() {
+    return String(getCurrentUser()?.role ?? '').toLowerCase() === 'staff';
+}
+
+function activeLecturerStatuses() {
+    return isStaffReviewer() ? STAFF_ACTIVE_STATUSES : ACTIVE_LECTURER_STATUSES;
+}
+
+function lecturerHistoryStatuses() {
+    return isStaffReviewer() ? STAFF_HISTORY_STATUSES : LECTURER_HISTORY_STATUSES;
 }
 
 async function fetchLecturerDisputes() {
@@ -52,11 +66,37 @@ function lecturerCourseLabel(courseCode) {
 }
 
 function activeLecturerDisputes(items) {
-    return items.filter((item) => ACTIVE_LECTURER_STATUSES.includes(String(item.status ?? '').toLowerCase()));
+    return items.filter((item) => activeLecturerStatuses().includes(String(item.status ?? '').toLowerCase()));
 }
 
 function lecturerHistoryDisputes(items) {
-    return items.filter((item) => LECTURER_HISTORY_STATUSES.includes(String(item.status ?? '').toLowerCase()));
+    return items.filter((item) => lecturerHistoryStatuses().includes(String(item.status ?? '').toLowerCase()));
+}
+
+function disputeLaneText(item) {
+    const stage = String(item?.assignment_name ?? '').trim();
+    if (stage !== '') {
+        return stage;
+    }
+
+    const assignedRole = String(item?.assigned_role ?? '').trim();
+    return assignedRole === '' ? '' : humanizeText(assignedRole);
+}
+
+function disputeTitleCell(item) {
+    const title = escapeHtml(item?.title ?? '-');
+    const lane = disputeLaneText(item);
+
+    if (lane === '') {
+        return title;
+    }
+
+    return `
+        <div class="stacked-text">
+            <span class="primary-text">${title}</span>
+            <span class="sub-text">${escapeHtml(lane)}</span>
+        </div>
+    `;
 }
 
 function filterByCourse(items, courseCode) {
@@ -204,9 +244,13 @@ function exportLecturerHistoryData(disputes) {
 }
 
 function renderLecturerMetrics(disputes, alerts) {
+    const pendingCount = isStaffReviewer()
+        ? disputes.filter((d) => d.status === 'escalated').length
+        : disputes.filter((d) => d.status === 'pending').length;
+
     const metrics = {
         assigned: disputes.length,
-        pending: disputes.filter((d) => d.status === 'pending').length,
+        pending: isStaffReviewer() ? (alerts?.escalated_disputes ?? pendingCount) : pendingCount,
         under_review: disputes.filter((d) => d.status === 'under_review').length,
         overdue: alerts?.overdue_disputes ?? 0,
     };
@@ -237,7 +281,7 @@ function renderLecturerRecent(disputes) {
                 <tr>
                     <td>${escapeHtml(item.ticket_number ?? '-')}</td>
                     <td>${escapeHtml(item.student_id ?? '-')}</td>
-                    <td>${escapeHtml(item.title ?? '-')}</td>
+                    <td>${disputeTitleCell(item)}</td>
                     <td>${statusBadge(item.status)}</td>
                     <td>${escapeHtml(formatDate(item.updated_at))}</td>
                     <td class="table-action-cell">
@@ -281,7 +325,7 @@ function renderLecturerQueue(disputes) {
                 <tr>
                     <td>${escapeHtml(item.ticket_number ?? '-')}</td>
                     <td>${escapeHtml(item.student_id ?? '-')}</td>
-                    <td>${escapeHtml(item.title ?? '-')}</td>
+                    <td>${disputeTitleCell(item)}</td>
                     <td>${priorityBadge(item.priority)}</td>
                     <td>${statusBadge(item.status)}</td>
                     <td>${escapeHtml(formatDate(item.updated_at))}</td>
@@ -384,7 +428,7 @@ function renderOverview(dispute, targetId) {
     }
 
     if (!dispute) {
-        el.innerHTML = '<div class="gd-empty">Dispute not found for this lecturer.</div>';
+        el.innerHTML = '<div class="gd-empty">Dispute not found for this reviewer.</div>';
         return;
     }
 
@@ -396,6 +440,7 @@ function renderOverview(dispute, targetId) {
             <div class="overview-label">Course</div><div class="overview-value">${escapeHtml(lecturerCourseLabel(lecturerCourseCode(dispute)))}</div>
             <div class="overview-label">Unit</div><div class="overview-value">${escapeHtml(dispute.unit_name ? `${dispute.unit_code ?? ''} - ${dispute.unit_name}` : (dispute.unit_code ?? '-'))}</div>
             <div class="overview-label">Status</div><div class="overview-value">${statusBadge(dispute.status)}</div>
+            <div class="overview-label">Review Lane</div><div class="overview-value">${escapeHtml(disputeLaneText(dispute) || 'Lecturer Review')}</div>
             <div class="overview-label">Priority</div><div class="overview-value">${priorityBadge(dispute.priority)}</div>
             <div class="overview-label">Title</div><div class="overview-value">${escapeHtml(dispute.title ?? '-')}</div>
             <div class="overview-label">Description</div><div class="overview-value">${escapeHtml(dispute.description ?? '-')}</div>

@@ -44,7 +44,9 @@
                 <option value="all">All outcomes</option>
                 <option value="resolved">Resolved</option>
                 <option value="rejected">Rejected</option>
-                <option value="escalated">Escalated</option>
+                @unless ($portalUserMeta['is_staff_reviewer'] ?? false)
+                    <option value="escalated">Escalated</option>
+                @endunless
                 <option value="closed">Closed</option>
             </select>
             <select class="status-filter" id="lecturerHistoryCourseFilter">

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\AdminUserWelcomeMail;
 use App\Models\Lecturer;
 use App\Models\Staff;
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
@@ -92,6 +93,77 @@ class AdminUserEditTest extends TestCase
             'last_name' => 'Owner',
             'role' => 'admin',
             'department' => 'Administration',
+        ]);
+    }
+
+    public function test_admin_can_change_a_student_account_to_staff_without_leaving_a_student_profile(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.test',
+            'identifier' => 'ADM100',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        User::create([
+            'name' => 'Taylor Student',
+            'email' => 'taylor.student@example.test',
+            'identifier' => 'USR200',
+            'role' => 'student',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        Student::create([
+            'reg_number' => 'USR200',
+            'first_name' => 'Taylor',
+            'last_name' => 'Student',
+            'course' => 'BBC',
+            'year' => 2,
+            'department' => 'Computer Science',
+            'faculty' => 'COPAS',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson('/admin/users/USR200', [
+                'first_name' => 'Taylor',
+                'last_name' => 'Reviewer',
+                'email' => 'taylor.reviewer@example.test',
+                'role' => 'staff',
+                'staff_role' => 'exam_officer',
+                'department' => 'Computer Science',
+                'salutation' => 'Dr.',
+                'status' => 'active',
+                'office_location' => 'Main Campus',
+                'require_password_reset' => false,
+                'manual_approval_required' => false,
+                'send_account_email' => false,
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('user.identifier', 'USR200')
+            ->assertJsonPath('user.role', 'staff');
+
+        $this->assertDatabaseHas('users', [
+            'identifier' => 'USR200',
+            'role' => 'staff',
+            'email' => 'taylor.reviewer@example.test',
+        ]);
+
+        $this->assertDatabaseHas('staff', [
+            'staff_id' => 'USR200',
+            'first_name' => 'Taylor',
+            'last_name' => 'Reviewer',
+            'role' => 'exam_officer',
+            'department' => 'Computer Science',
+        ]);
+
+        $this->assertDatabaseMissing('students', [
+            'reg_number' => 'USR200',
         ]);
     }
 

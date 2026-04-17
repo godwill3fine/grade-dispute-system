@@ -1663,6 +1663,7 @@ export async function initAdminUserCreate() {
     const form = document.getElementById('adminUserCreateForm');
     const feedback = document.getElementById('adminUserCreateFeedback');
     const roleSelect = document.getElementById('adminUserRole');
+    const staffRoleSelect = document.getElementById('adminUserStaffRole');
     const departmentSelect = document.getElementById('adminUserDepartment');
     const departmentHelp = document.getElementById('adminUserDepartmentHelp');
     const statusSelect = document.getElementById('adminUserStatus');
@@ -1708,15 +1709,17 @@ export async function initAdminUserCreate() {
         });
 
         if (departmentSelect) {
-            departmentSelect.required = role === 'lecturer';
+            departmentSelect.required = role === 'lecturer' || role === 'staff';
         }
 
         if (departmentHelp) {
             departmentHelp.textContent = role === 'lecturer'
                 ? 'Department is required for lecturers so case routing and scoped access stay accurate.'
-                : (role === 'student'
-                    ? 'Department is optional for student accounts, but it helps with reporting and directory filters.'
-                    : 'Use a department when this account should be tied to a specific academic or support unit.');
+                : (role === 'staff'
+                    ? 'Department and staff responsibility are required so escalated tickets route to the correct reviewer.'
+                    : (role === 'student'
+                        ? 'Department is optional for student accounts, but it helps with reporting and directory filters.'
+                        : 'Use a department when this account should be tied to a specific academic or support unit.'));
         }
     };
 
@@ -1754,6 +1757,7 @@ export async function initAdminUserCreate() {
     };
 
     roleSelect?.addEventListener('change', syncRoleFields);
+    staffRoleSelect?.addEventListener('change', syncRoleFields);
     statusSelect?.addEventListener('change', syncSecurityCopy);
     welcomeCheckbox?.addEventListener('change', syncSecurityCopy);
     resetCheckbox?.addEventListener('change', syncSecurityCopy);
@@ -1832,6 +1836,7 @@ export async function initAdminUserEdit() {
     const form = document.getElementById('adminUserEditForm');
     const feedback = document.getElementById('adminUserEditFeedback');
     const roleSelect = document.getElementById('adminUserEditRole');
+    const staffRoleSelect = document.getElementById('adminUserEditStaffRole');
     const departmentSelect = document.getElementById('adminUserEditDepartment');
     const departmentHelp = document.getElementById('adminUserEditDepartmentHelp');
     const responsibilityInput = document.getElementById('adminUserEditResponsibility');
@@ -1870,6 +1875,7 @@ export async function initAdminUserEdit() {
         .includes(String(role ?? '').trim().toLowerCase());
 
     const selectedStatus = () => String(form?.querySelector('input[name="status"]:checked')?.value ?? '').trim().toLowerCase();
+    const selectedStaffRole = () => String(staffRoleSelect?.value ?? '').trim().toLowerCase();
 
     const syncResponsibilityPreview = () => {
         if (!responsibilityInput) {
@@ -1878,12 +1884,19 @@ export async function initAdminUserEdit() {
 
         const role = String(roleSelect?.value ?? '').trim().toLowerCase();
         const course = String(courseInput?.value ?? '').trim();
+        const staffRole = selectedStaffRole();
 
         responsibilityInput.value = role === 'student'
             ? (course ? `Course ${course} dispute submissions` : 'Student dispute submissions')
             : (role === 'lecturer'
                 ? 'Assessment review and ticket responses'
-                : 'User, settings, and escalation management');
+                : (role === 'staff'
+                    ? (staffRole === 'hod'
+                        ? 'Department-level escalations and lecturer-side review controls'
+                        : (staffRole === 'exam_officer'
+                            ? 'Examination review escalations and lecturer-side review controls'
+                            : 'Elevated lecturer-side review controls'))
+                    : 'User, settings, and escalation management'));
     };
 
     const syncRoleFields = () => {
@@ -1898,15 +1911,17 @@ export async function initAdminUserEdit() {
         });
 
         if (departmentSelect) {
-            departmentSelect.required = role === 'lecturer';
+            departmentSelect.required = role === 'lecturer' || role === 'staff';
         }
 
         if (departmentHelp) {
             departmentHelp.textContent = role === 'lecturer'
                 ? 'Department is required for lecturers so case routing and scoped access stay accurate.'
-                : (role === 'student'
-                    ? 'Department is optional for student accounts, but it helps with reporting and filters.'
-                    : 'Use a department when this admin account should be tied to a specific academic or support unit.');
+                : (role === 'staff'
+                    ? 'Department and staff responsibility are required so escalated tickets route to the correct reviewer.'
+                    : (role === 'student'
+                        ? 'Department is optional for student accounts, but it helps with reporting and filters.'
+                        : 'Use a department when this admin account should be tied to a specific academic or support unit.'));
         }
 
         syncResponsibilityPreview();
@@ -1981,6 +1996,7 @@ export async function initAdminUserEdit() {
 
     roleSelect?.addEventListener('change', syncRoleFields);
     courseInput?.addEventListener('input', syncResponsibilityPreview);
+    staffRoleSelect?.addEventListener('change', syncResponsibilityPreview);
     form?.querySelectorAll('input[name="status"]').forEach((input) => {
         input.addEventListener('change', syncSecurityCopy);
     });

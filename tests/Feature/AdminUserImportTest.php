@@ -171,4 +171,53 @@ class AdminUserImportTest extends TestCase
             'department' => 'Information Technology',
         ]);
     }
+
+    public function test_admin_can_import_staff_users_without_creating_student_profiles(): void
+    {
+        $admin = User::create([
+            'name' => 'Import Admin',
+            'email' => 'import-admin@example.test',
+            'identifier' => 'ADM999',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        $csv = implode("\n", [
+            'identifier,role,staff_role,first_name,last_name,email,department,salutation,status',
+            'STF200,staff,exam_officer,Grace,Mwangi,grace.mwangi@example.test,Computer Science,Dr.,active',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post('/admin/users/import', [
+                'import_file' => UploadedFile::fake()->createWithContent('staff-users.csv', $csv),
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('summary.created_count', 1)
+            ->assertJsonPath('summary.skipped_count', 0)
+            ->assertJsonPath('summary.error_count', 0);
+
+        $this->assertDatabaseHas('users', [
+            'identifier' => 'STF200',
+            'role' => 'staff',
+            'email' => 'grace.mwangi@example.test',
+        ]);
+
+        $this->assertDatabaseHas('staff', [
+            'staff_id' => 'STF200',
+            'first_name' => 'Grace',
+            'last_name' => 'Mwangi',
+            'role' => 'exam_officer',
+            'department' => 'Computer Science',
+        ]);
+
+        $this->assertDatabaseMissing('students', [
+            'reg_number' => 'STF200',
+        ]);
+    }
 }

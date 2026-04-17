@@ -46,6 +46,9 @@
                     <option value="all">All statuses</option>
                     <option value="pending">Pending</option>
                     <option value="under_review">Under Review</option>
+                    @if ($portalUserMeta['is_staff_reviewer'] ?? false)
+                        <option value="escalated">Escalated</option>
+                    @endif
                 </select>
             </div>
         </div>

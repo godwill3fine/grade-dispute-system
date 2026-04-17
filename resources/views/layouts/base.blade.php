@@ -5,6 +5,7 @@
 
     $currentPageId = trim($__env->yieldContent('page_id'));
     $isAuthPage = Str::startsWith($currentPageId, 'auth-');
+    $portalUserMeta = is_array($portalUserMeta ?? null) ? $portalUserMeta : [];
     $roleStylesheet = match (auth()->user()->role ?? null) {
         'student' => 'student-pages.css',
         'lecturer', 'staff' => 'lecturer-pages.css',
@@ -50,11 +51,13 @@
 @yield('body')
 
 @php
-    $gdsUser = auth()->check() ? [
-        'role' => auth()->user()->role,
-        'identifier' => auth()->user()->identifier,
-        'name' => auth()->user()->name,
-    ] : null;
+    $gdsUser = auth()->check()
+        ? array_merge([
+            'role' => auth()->user()->role,
+            'identifier' => auth()->user()->identifier,
+            'name' => auth()->user()->name,
+        ], $portalUserMeta)
+        : null;
 @endphp
 <script>
     window.GDS_CONFIG = {

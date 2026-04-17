@@ -55,6 +55,12 @@ class EscalateDisputesCommandTest extends TestCase
             'performed_by' => 'system',
             'action' => 'Automatically escalated to HOD',
         ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'recipient_id' => 'H001',
+            'dispute_id' => $dispute->id,
+            'link' => '/portal/lecturer/disputes/'.$dispute->id,
+        ]);
     }
 
     public function test_it_escalates_hod_dispute_to_admin_after_six_days(): void
@@ -90,6 +96,12 @@ class EscalateDisputesCommandTest extends TestCase
             'dispute_id' => $dispute->id,
             'performed_by' => 'system',
             'action' => 'Automatically escalated to Admin',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'recipient_id' => 'A001',
+            'dispute_id' => $dispute->id,
+            'link' => '/portal/admin/disputes/'.$dispute->id,
         ]);
     }
 

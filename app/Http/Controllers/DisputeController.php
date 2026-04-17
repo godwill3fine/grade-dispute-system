@@ -160,17 +160,12 @@ class DisputeController extends Controller
         $actorIdentifier = $this->actorIdentifier($request);
         $actorRole = $this->actorRole($request);
 
-        if (in_array($actorRole, ['lecturer', 'staff'], true) && $actorIdentifier !== null && $actorIdentifier !== $lecturer_id) {
+        if (! $this->canAccessLecturerPortalQueue($actorRole, $actorIdentifier, (string) $lecturer_id)) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $query = Dispute::where('assigned_to', $lecturer_id);
-
-        if ($actorRole === 'lecturer') {
-            $query->where('assigned_role', 'lecturer');
-        }
-
-        $disputes = $query
+        $disputes = Dispute::where('assigned_to', $lecturer_id)
+            ->whereIn('assigned_role', $this->lecturerVisibleAssignedRoles($actorRole))
             ->orderByDesc('created_at')
             ->get();
 
@@ -197,7 +192,10 @@ class DisputeController extends Controller
         }
 
         $actorRole = $this->actorRole($request);
-        if (in_array($actorRole, ['lecturer', 'staff'], true) && $dispute->assigned_to !== $performedBy) {
+        if (
+            $this->isLecturerPortalReviewer($actorRole)
+            && ! $this->canManageLecturerPortalDispute($dispute, $performedBy, $actorRole)
+        ) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
@@ -255,7 +253,10 @@ class DisputeController extends Controller
         }
 
         $actorRole = $this->actorRole($request);
-        if (in_array($actorRole, ['lecturer', 'staff'], true) && $dispute->assigned_to !== $performedBy) {
+        if (
+            $this->isLecturerPortalReviewer($actorRole)
+            && ! $this->canManageLecturerPortalDispute($dispute, $performedBy, $actorRole)
+        ) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
@@ -790,24 +791,34 @@ class DisputeController extends Controller
         $actorIdentifier = $this->actorIdentifier($request);
         $actorRole = $this->actorRole($request);
 
-        if (in_array($actorRole, ['lecturer', 'staff'], true) && $actorIdentifier !== null && $actorIdentifier !== $lecturer_id) {
+        if (! $this->canAccessLecturerPortalQueue($actorRole, $actorIdentifier, (string) $lecturer_id)) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
         $overdueCutoff = now()->subDays(2);
+        $visibleRoles = $this->lecturerVisibleAssignedRoles($actorRole);
+        $activeStatuses = $this->lecturerPortalActiveStatuses($actorRole);
 
         $pending = Dispute::where('assigned_to', $lecturer_id)
-            ->where('status', 'pending')
+            ->whereIn('assigned_role', $visibleRoles)
+            ->whereIn('status', $activeStatuses)
             ->count();
 
         $overdue = Dispute::where('assigned_to', $lecturer_id)
-            ->whereIn('status', ['pending', 'under_review'])
+            ->whereIn('assigned_role', $visibleRoles)
+            ->whereIn('status', $activeStatuses)
             ->where('updated_at', '<', $overdueCutoff)
+            ->count();
+
+        $escalated = Dispute::where('assigned_to', $lecturer_id)
+            ->whereIn('assigned_role', $visibleRoles)
+            ->where('status', 'escalated')
             ->count();
 
         return response()->json([
             'pending_disputes' => $pending,
             'overdue_disputes' => $overdue,
+            'escalated_disputes' => $escalated,
         ]);
     }
 
@@ -887,6 +898,51 @@ class DisputeController extends Controller
         }
 
         return trim($role);
+    }
+
+    private function canAccessLecturerPortalQueue(?string $actorRole, ?string $actorIdentifier, string $requestedIdentifier): bool
+    {
+        if ($actorRole === 'admin') {
+            return true;
+        }
+
+        if (! $this->isLecturerPortalReviewer($actorRole)) {
+            return false;
+        }
+
+        return $actorIdentifier !== null && $actorIdentifier === trim($requestedIdentifier);
+    }
+
+    private function canManageLecturerPortalDispute(Dispute $dispute, string $performedBy, ?string $actorRole): bool
+    {
+        if ($dispute->assigned_to !== $performedBy) {
+            return false;
+        }
+
+        return in_array(
+            Str::lower(trim((string) ($dispute->assigned_role ?? ''))),
+            $this->lecturerVisibleAssignedRoles($actorRole),
+            true
+        );
+    }
+
+    private function isLecturerPortalReviewer(?string $actorRole): bool
+    {
+        return in_array($actorRole, ['lecturer', 'staff'], true);
+    }
+
+    private function lecturerPortalActiveStatuses(?string $actorRole): array
+    {
+        return $actorRole === 'staff'
+            ? ['pending', 'under_review', 'escalated']
+            : ['pending', 'under_review'];
+    }
+
+    private function lecturerVisibleAssignedRoles(?string $actorRole): array
+    {
+        return in_array($actorRole, ['staff', 'admin'], true)
+            ? ['lecturer', 'hod', 'exam_officer']
+            : ['lecturer'];
     }
 
     private function resolveAdminRoutingSelection(

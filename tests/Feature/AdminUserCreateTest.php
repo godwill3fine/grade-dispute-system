@@ -133,6 +133,55 @@ class AdminUserCreateTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_create_staff_user_without_creating_a_student_profile(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.test',
+            'identifier' => 'ADM100',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson('/admin/users', [
+                'first_name' => 'Grace',
+                'last_name' => 'Mwangi',
+                'email' => 'grace.mwangi@example.test',
+                'identifier' => 'STF100',
+                'role' => 'staff',
+                'staff_role' => 'hod',
+                'department' => 'Computer Science',
+                'salutation' => 'Dr.',
+                'status' => 'active',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('user.identifier', 'STF100')
+            ->assertJsonPath('user.role', 'staff');
+
+        $this->assertDatabaseHas('users', [
+            'identifier' => 'STF100',
+            'role' => 'staff',
+            'email' => 'grace.mwangi@example.test',
+        ]);
+
+        $this->assertDatabaseHas('staff', [
+            'staff_id' => 'STF100',
+            'first_name' => 'Grace',
+            'last_name' => 'Mwangi',
+            'role' => 'hod',
+            'department' => 'Computer Science',
+        ]);
+
+        $this->assertDatabaseMissing('students', [
+            'reg_number' => 'STF100',
+        ]);
+    }
+
     public function test_password_reset_requirement_blocks_login_until_reset_flow_is_completed(): void
     {
         $user = User::create([

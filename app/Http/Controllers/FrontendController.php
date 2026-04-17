@@ -827,7 +827,8 @@ class FrontendController extends Controller
 
         return [
             'departments' => $departments,
-            'roles' => ['student', 'lecturer', 'admin'],
+            'roles' => ['student', 'lecturer', 'staff', 'admin'],
+            'staff_roles' => ['hod', 'exam_officer'],
             'statuses' => ['pending invite', 'active', 'inactive'],
         ];
     }
@@ -865,6 +866,7 @@ class FrontendController extends Controller
         $status = $this->normalizeAdminUserStatus($user->status);
         $course = trim((string) data_get($profile, 'course', ''));
         $salutation = trim((string) data_get($profile, 'salutation', ''));
+        $staffRole = $role === 'staff' ? trim((string) data_get($profile, 'role', '')) : '';
         $year = filled(data_get($profile, 'year')) ? (string) data_get($profile, 'year') : '';
         $officeLocation = trim((string) ($user->office_location ?? ''));
 
@@ -876,6 +878,8 @@ class FrontendController extends Controller
             'identifier' => trim((string) $user->identifier),
             'role' => $role,
             'role_label' => Str::upper($role === '' ? 'user' : $role),
+            'staff_role' => $staffRole,
+            'staff_role_label' => $staffRole !== '' ? Str::title(str_replace('_', ' ', $staffRole)) : '',
             'status' => $status,
             'status_label' => Str::title(str_replace('_', ' ', $status)),
             'department' => $department !== '' ? $department : 'None / Not Applicable',
@@ -888,6 +892,11 @@ class FrontendController extends Controller
             'responsibility' => match ($role) {
                 'student' => $course !== '' ? 'Course '.$course.' dispute submissions' : 'Student dispute submissions',
                 'lecturer' => 'Assessment review and ticket responses',
+                'staff' => match ($staffRole) {
+                    'hod' => 'Department-level escalations and lecturer-side review controls',
+                    'exam_officer' => 'Examination review escalations and lecturer-side review controls',
+                    default => 'Elevated lecturer-side review controls',
+                },
                 'admin' => 'User, settings, and escalation management',
                 default => 'Portal access management',
             },
@@ -897,7 +906,7 @@ class FrontendController extends Controller
             'icon' => match ($role) {
                 'student' => 'school',
                 'lecturer' => 'co_present',
-                'admin' => 'shield',
+                'staff', 'admin' => 'shield',
                 default => 'person',
             },
             'created_at' => $user->created_at?->setTimezone('Africa/Nairobi')->format('Y-m-d') ?? 'Not available',
@@ -1035,24 +1044,42 @@ class FrontendController extends Controller
         $name = '';
         $department = '';
         $faculty = '';
+        $userRole = trim((string) ($user?->role ?? ''));
 
-        if ($student) {
+        if ($userRole === 'student' && $student) {
             $role = 'student';
             $name = trim((string) data_get($student, 'display_name', data_get($student, 'full_name', '')));
             $department = trim((string) data_get($student, 'department', ''));
             $faculty = trim((string) data_get($student, 'faculty', ''));
+        } elseif ($userRole === 'lecturer' && $lecturer) {
+            $role = 'lecturer';
+            $name = trim((string) data_get($lecturer, 'formal_name', data_get($lecturer, 'display_name', '')));
+            $department = trim((string) data_get($lecturer, 'department', ''));
+            $faculty = trim((string) data_get($user, 'department.faculty', ''));
+        } elseif (in_array($userRole, ['staff', 'admin'], true) && $staffMember) {
+            $role = $userRole === 'staff'
+                ? trim((string) ($staffMember->role ?: 'staff'))
+                : 'admin';
+            $name = trim((string) data_get($staffMember, 'formal_name', data_get($staffMember, 'display_name', '')));
+            $department = trim((string) data_get($staffMember, 'department', ''));
+            $faculty = trim((string) data_get($user, 'department.faculty', ''));
+        } elseif ($staffMember) {
+            $role = trim((string) ($staffMember->role ?: 'staff'));
+            $name = trim((string) data_get($staffMember, 'formal_name', data_get($staffMember, 'display_name', '')));
+            $department = trim((string) data_get($staffMember, 'department', ''));
+            $faculty = trim((string) data_get($user, 'department.faculty', ''));
         } elseif ($lecturer) {
             $role = 'lecturer';
             $name = trim((string) data_get($lecturer, 'formal_name', data_get($lecturer, 'display_name', '')));
             $department = trim((string) data_get($lecturer, 'department', ''));
             $faculty = trim((string) data_get($user, 'department.faculty', ''));
-        } elseif ($staffMember) {
-            $role = trim((string) ($user?->role ?: $staffMember->role ?: 'admin'));
-            $name = trim((string) data_get($staffMember, 'formal_name', data_get($staffMember, 'display_name', '')));
-            $department = trim((string) data_get($staffMember, 'department', ''));
-            $faculty = trim((string) data_get($user, 'department.faculty', ''));
+        } elseif ($student) {
+            $role = 'student';
+            $name = trim((string) data_get($student, 'display_name', data_get($student, 'full_name', '')));
+            $department = trim((string) data_get($student, 'department', ''));
+            $faculty = trim((string) data_get($student, 'faculty', ''));
         } elseif ($user) {
-            $role = trim((string) ($user->role ?? 'user')) !== '' ? trim((string) $user->role) : 'user';
+            $role = $userRole !== '' ? $userRole : 'user';
             $name = trim((string) ($user->name ?? ''));
             $department = trim((string) data_get($user, 'department.name', ''));
             $faculty = trim((string) data_get($user, 'department.faculty', ''));
@@ -1157,14 +1184,14 @@ class FrontendController extends Controller
         return match (Str::lower(trim($role))) {
             'student' => 'school',
             'lecturer' => 'co_present',
-            'admin', 'exam_officer', 'hod' => 'shield',
+            'staff', 'admin', 'exam_officer', 'hod' => 'shield',
             default => 'person',
         };
     }
 
     private function ticketRoleBadgeClass(string $role): string
     {
-        return in_array(Str::lower(trim($role)), ['admin', 'exam_officer', 'hod'], true)
+        return in_array(Str::lower(trim($role)), ['staff', 'admin', 'exam_officer', 'hod'], true)
             ? 'role-dark'
             : 'role-outline';
     }

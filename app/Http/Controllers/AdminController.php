@@ -83,6 +83,9 @@ class AdminController extends Controller
                 ));
 
                 $role = Str::lower((string) $user->role);
+                $staffSubrole = $role === 'staff'
+                    ? trim((string) data_get($profile, 'role', ''))
+                    : '';
 
                 return [
                     'id' => $user->id,
@@ -90,11 +93,13 @@ class AdminController extends Controller
                     'email' => $user->email,
                     'identifier' => $user->identifier ?: 'ID unavailable',
                     'role' => $role,
-                    'role_label' => Str::upper($role === '' ? 'user' : $role),
+                    'role_label' => $role === 'staff' && $staffSubrole !== ''
+                        ? 'STAFF / '.Str::upper(str_replace('_', ' ', $staffSubrole))
+                        : Str::upper($role === '' ? 'user' : $role),
                     'department' => $department !== '' ? $department : '-',
                     'status' => $this->normalizeStatus($user->status),
                     'last_login' => $user->last_login?->toIso8601String(),
-                    'icon' => $role === 'admin' ? 'shield' : 'person',
+                    'icon' => in_array($role, ['staff', 'admin'], true) ? 'shield' : 'person',
                     'created_at' => $user->created_at?->toIso8601String(),
                 ];
             })
@@ -112,6 +117,7 @@ class AdminController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'identifier' => ['required', 'string', 'max:255', 'unique:users,identifier'],
             'role' => ['required', 'string'],
+            'staff_role' => ['nullable', 'string', 'max:50'],
             'department' => ['nullable', 'string', 'max:255'],
             'faculty' => ['nullable', 'string', 'max:255'],
             'course' => ['nullable', 'string', 'max:255'],
@@ -133,6 +139,7 @@ class AdminController extends Controller
         $facultyName = trim((string) $request->input('faculty', ''));
         $course = trim((string) $request->input('course', ''));
         $salutation = trim((string) $request->input('salutation', ''));
+        $staffRole = $this->normalizeStaffRole((string) $request->input('staff_role', ''), $role);
         $officeLocation = trim((string) $request->input('office_location', ''));
         $selectedStatus = $this->normalizeAccountStatus((string) $request->input('status', 'active'));
         $sendWelcomeEmail = $request->boolean('send_welcome_email');
@@ -157,9 +164,9 @@ class AdminController extends Controller
             }
         }
 
-        if ($role === 'lecturer' && $departmentName === '') {
+        if (in_array($role, ['lecturer', 'staff'], true) && $departmentName === '') {
             throw ValidationException::withMessages([
-                'department' => ['Department is required for lecturer accounts.'],
+                'department' => ['Department is required for lecturer and staff accounts.'],
             ]);
         }
 
@@ -174,6 +181,7 @@ class AdminController extends Controller
             $facultyName,
             $course,
             $salutation,
+            $staffRole,
             $officeLocation,
             $effectiveStatus,
             $requirePasswordReset,
@@ -211,7 +219,7 @@ class AdminController extends Controller
                         'first_name' => $firstName,
                         'last_name' => $lastName,
                         'salutation' => $salutation !== '' ? $salutation : null,
-                        'role' => 'admin',
+                        'role' => $this->staffProfileRoleFor($role, $staffRole),
                         'department' => $departmentName !== '' ? $departmentName : null,
                     ]
                 );
@@ -222,7 +230,7 @@ class AdminController extends Controller
                 'email' => $email,
                 'identifier' => $identifier,
                 'role' => $role,
-                'role_id' => $roleIds[$role] ?? null,
+                'role_id' => $this->resolveUserRoleId($roleIds, $role, $staffRole),
                 'department_id' => $department?->id,
                 'status' => $effectiveStatus,
                 'office_location' => $officeLocation !== '' ? $officeLocation : null,
@@ -240,7 +248,7 @@ class AdminController extends Controller
                     new AdminUserWelcomeMail(
                         recipientName: trim($user->name),
                         identifier: $user->identifier,
-                        roleLabel: Str::title($role),
+                        roleLabel: $this->userRoleLabel($role, $staffRole),
                         portalUrl: route('portal.auth'),
                         passwordSetupUrl: route('portal.password.forgot', ['identifier' => $user->identifier]),
                         statusLabel: Str::title(str_replace('_', ' ', $effectiveStatus)),
@@ -303,6 +311,7 @@ class AdminController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', 'string'],
+            'staff_role' => ['nullable', 'string', 'max:50'],
             'department' => ['nullable', 'string', 'max:255'],
             'faculty' => ['nullable', 'string', 'max:255'],
             'course' => ['nullable', 'string', 'max:255'],
@@ -324,6 +333,7 @@ class AdminController extends Controller
         $course = trim((string) $request->input('course', ''));
         $year = $request->filled('year') ? (int) $request->input('year') : null;
         $salutation = trim((string) $request->input('salutation', ''));
+        $staffRole = $this->normalizeStaffRole((string) $request->input('staff_role', ''), $role);
         $officeLocation = trim((string) $request->input('office_location', ''));
         $selectedStatus = $this->normalizeAccountStatus((string) $request->input('status', 'active'));
         $sendAccountEmail = $request->boolean('send_account_email');
@@ -347,9 +357,9 @@ class AdminController extends Controller
             }
         }
 
-        if ($role === 'lecturer' && $departmentName === '') {
+        if (in_array($role, ['lecturer', 'staff'], true) && $departmentName === '') {
             throw ValidationException::withMessages([
-                'department' => ['Department is required for lecturer accounts.'],
+                'department' => ['Department is required for lecturer and staff accounts.'],
             ]);
         }
 
@@ -370,6 +380,7 @@ class AdminController extends Controller
             $course,
             $year,
             $salutation,
+            $staffRole,
             $email,
             $department,
             $effectiveStatus,
@@ -388,6 +399,7 @@ class AdminController extends Controller
                 course: $course,
                 year: $year,
                 salutation: $salutation,
+                staffRole: $staffRole,
             );
 
             $this->removeStaleProfiles($user->identifier, $role);
@@ -396,7 +408,7 @@ class AdminController extends Controller
                 'name' => trim($firstName.' '.$lastName),
                 'email' => $email,
                 'role' => $role,
-                'role_id' => $roleIds[$role] ?? null,
+                'role_id' => $this->resolveUserRoleId($roleIds, $role, $staffRole),
                 'department_id' => $department?->id,
                 'status' => $effectiveStatus,
                 'office_location' => $officeLocation !== '' ? $officeLocation : null,
@@ -678,6 +690,7 @@ class AdminController extends Controller
         $facultyName = $this->optionalImportValue($row, 'faculty');
         $status = $this->normalizeAccountStatus($this->optionalImportValue($row, 'status'));
         $salutation = $this->optionalImportValue($row, 'salutation');
+        $staffRole = $this->normalizeStaffRole($this->optionalImportValue($row, 'staff_role'), $role);
         $password = $this->optionalImportValue($row, 'password');
         $usedDefaultPassword = $password === '';
         $department = $this->resolveImportDepartment($departmentName, $facultyName);
@@ -775,11 +788,18 @@ class AdminController extends Controller
             return ['used_default_password' => $usedDefaultPassword];
         }
 
+        if ($role === 'staff' && $departmentName === '') {
+            throw ValidationException::withMessages([
+                'department' => ['Department is required for staff imports.'],
+            ]);
+        }
+
         DB::transaction(function () use (
             $identifier,
             $firstName,
             $lastName,
             $salutation,
+            $staffRole,
             $departmentName,
             $email,
             $password,
@@ -795,7 +815,7 @@ class AdminController extends Controller
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'salutation' => $salutation !== '' ? $salutation : null,
-                    'role' => 'admin',
+                    'role' => $this->staffProfileRoleFor($role, $staffRole),
                     'department' => $departmentName !== '' ? $departmentName : null,
                 ]
             );
@@ -805,7 +825,7 @@ class AdminController extends Controller
                 'email' => $email,
                 'identifier' => $identifier,
                 'role' => $role,
-                'role_id' => $roleIds[$role] ?? null,
+                'role_id' => $this->resolveUserRoleId($roleIds, $role, $staffRole),
                 'department_id' => $department?->id,
                 'status' => $status,
                 'password' => Hash::make($usedDefaultPassword ? $identifier : $password),
@@ -889,6 +909,9 @@ class AdminController extends Controller
             'lecturer_id' => 'identifier',
             'staff_id' => 'identifier',
             'system_role' => 'role',
+            'staff_responsibility' => 'staff_role',
+            'staff_subrole' => 'staff_role',
+            'sub_role' => 'staff_role',
             'name' => 'full_name',
         ][$normalized] ?? $normalized;
     }
@@ -935,9 +958,39 @@ class AdminController extends Controller
     {
         $normalized = Str::lower(trim($role));
 
-        if (! in_array($normalized, ['student', 'lecturer', 'admin'], true)) {
+        if (! in_array($normalized, ['student', 'lecturer', 'staff', 'admin'], true)) {
             throw ValidationException::withMessages([
-                'role' => ['role must be one of: student, lecturer, admin.'],
+                'role' => ['role must be one of: student, lecturer, staff, admin.'],
+            ]);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeStaffRole(string $staffRole, string $role): string
+    {
+        if ($role === 'admin') {
+            return 'admin';
+        }
+
+        if ($role !== 'staff') {
+            return '';
+        }
+
+        $normalized = Str::of($staffRole)
+            ->trim()
+            ->lower()
+            ->replace(['-', ' '], '_')
+            ->value();
+
+        $normalized = match ($normalized) {
+            'head_of_department' => 'hod',
+            default => $normalized,
+        };
+
+        if (! in_array($normalized, ['hod', 'exam_officer'], true)) {
+            throw ValidationException::withMessages([
+                'staff_role' => ['Staff responsibility must be either HOD or Exam Officer.'],
             ]);
         }
 
@@ -1121,6 +1174,7 @@ class AdminController extends Controller
         string $course,
         ?int $year,
         string $salutation,
+        string $staffRole,
     ): void {
         if ($role === 'student') {
             Student::updateOrCreate(
@@ -1158,7 +1212,7 @@ class AdminController extends Controller
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'salutation' => $salutation !== '' ? $salutation : null,
-                'role' => 'admin',
+                'role' => $this->staffProfileRoleFor($role, $staffRole),
                 'department' => $departmentName !== '' ? $departmentName : null,
             ]
         );
@@ -1174,9 +1228,40 @@ class AdminController extends Controller
             Lecturer::query()->where('lecturer_id', $identifier)->delete();
         }
 
-        if ($keepRole !== 'admin') {
+        if (! in_array($keepRole, ['staff', 'admin'], true)) {
             Staff::query()->where('staff_id', $identifier)->delete();
         }
+    }
+
+    private function staffProfileRoleFor(string $role, string $staffRole): string
+    {
+        if ($role === 'staff') {
+            return $staffRole;
+        }
+
+        return 'admin';
+    }
+
+    private function resolveUserRoleId(array $roleIds, string $role, string $staffRole): ?int
+    {
+        if ($role === 'staff' && isset($roleIds[$staffRole])) {
+            return $roleIds[$staffRole];
+        }
+
+        return $roleIds[$role] ?? null;
+    }
+
+    private function userRoleLabel(string $role, string $staffRole): string
+    {
+        if ($role === 'staff') {
+            return match ($staffRole) {
+                'hod' => 'HOD',
+                'exam_officer' => 'Exam Officer',
+                default => 'Staff',
+            };
+        }
+
+        return Str::title($role);
     }
 
     private function userDeletionBlockers(User $user): array
@@ -1209,12 +1294,16 @@ class AdminController extends Controller
 
     private function sendUserAccountEmail(User $user, bool $forcePasswordReset = false): bool
     {
+        $staffRole = $user->role === 'staff'
+            ? trim((string) Staff::query()->where('staff_id', $user->identifier)->value('role'))
+            : '';
+
         try {
             Mail::to($user->email)->send(
                 new AdminUserWelcomeMail(
                     recipientName: trim((string) $user->name),
                     identifier: trim((string) $user->identifier),
-                    roleLabel: Str::title(trim((string) $user->role)),
+                    roleLabel: $this->userRoleLabel(trim((string) $user->role), $staffRole),
                     portalUrl: route('portal.auth'),
                     passwordSetupUrl: route('portal.password.forgot', ['identifier' => $user->identifier]),
                     statusLabel: Str::title(str_replace('_', ' ', $this->normalizeAccountStatus((string) $user->status))),
