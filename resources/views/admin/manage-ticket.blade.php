@@ -112,7 +112,7 @@
             <div class="detail-card-header">Administrative Actions</div>
             <div class="detail-card-body">
                 <div class="form-group">
-                    <label for="adminTicketLecturerSelect">Reassign lecturer</label>
+                    <label for="adminTicketLecturerSelect">Lecturer reviewer</label>
                     <div class="input-action-group">
                         <select id="adminTicketLecturerSelect" class="form-control">
                             @forelse (($ticket['lecturer_options'] ?? []) as $option)
@@ -125,6 +125,7 @@
                         </select>
                         <button class="btn btn-outline" id="adminTicketLecturerUpdateBtn" type="button">Update</button>
                     </div>
+                    <span class="form-text">{{ $ticket['lecturer_help_text'] ?? 'Select the lecturer who should own the next review step.' }}</span>
                 </div>
 
                 <div class="form-group">
@@ -142,7 +143,7 @@
                 </div>
 
                 <div class="form-group form-group-compact">
-                    <label for="adminTicketRoutingSelect">Escalation routing</label>
+                    <label for="adminTicketRoutingSelect">Route ticket to</label>
                     <div class="input-action-group">
                         <select id="adminTicketRoutingSelect" class="form-control">
                             @foreach (($ticket['route_options'] ?? []) as $option)
@@ -153,6 +154,7 @@
                         </select>
                         <button class="btn btn-outline" id="adminTicketRoutingBtn" type="button">Route</button>
                     </div>
+                    <span class="form-text">{{ $ticket['routing_help_text'] ?? 'Choose the next review owner for this ticket.' }}</span>
                 </div>
 
                 <div class="form-actions ticket-inline-actions">

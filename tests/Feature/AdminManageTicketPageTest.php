@@ -156,6 +156,98 @@ class AdminManageTicketPageTest extends TestCase
         $this->assertSame('SLA exceeded by 3.0 Days', $ticket['time_open_meta'] ?? null);
     }
 
+    public function test_manage_ticket_lists_all_lecturers_and_explicit_route_destinations(): void
+    {
+        $department = Department::create([
+            'name' => 'Computer Science',
+            'faculty' => 'COPAS',
+        ]);
+
+        Unit::create([
+            'unit_code' => 'CS101',
+            'unit_name' => 'Introduction to Computing',
+            'department_id' => $department->id,
+        ]);
+
+        Student::create([
+            'reg_number' => 'S001',
+            'first_name' => 'John',
+            'last_name' => 'Smith',
+            'course' => 'BBC',
+            'year' => 2,
+            'department' => 'Computer Science',
+            'faculty' => 'COPAS',
+        ]);
+
+        Lecturer::create([
+            'lecturer_id' => 'LEC001',
+            'full_name' => 'Dr Alpha',
+            'department' => 'Computer Science',
+        ]);
+
+        Lecturer::create([
+            'lecturer_id' => 'LEC099',
+            'full_name' => 'Dr Zeta',
+            'department' => 'Mathematics',
+        ]);
+
+        UnitLecturer::create([
+            'unit_code' => 'CS101',
+            'lecturer_id' => 'LEC001',
+            'course' => 'BBC',
+        ]);
+
+        Staff::create([
+            'staff_id' => 'EX001',
+            'full_name' => 'Ms Exam',
+            'role' => 'exam_officer',
+            'department' => 'Computer Science',
+        ]);
+
+        Staff::create([
+            'staff_id' => 'HOD001',
+            'full_name' => 'Prof HOD',
+            'role' => 'hod',
+            'department' => 'Computer Science',
+        ]);
+
+        $admin = User::create([
+            'name' => 'Case Admin',
+            'email' => 'admin@example.test',
+            'identifier' => 'ADM001',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        $dispute = Dispute::create([
+            'ticket_number' => 'DSP-01000',
+            'student_id' => 'S001',
+            'type' => 'unit',
+            'unit_code' => 'CS101',
+            'priority' => 'high',
+            'assigned_to' => 'ADM001',
+            'assigned_role' => 'admin',
+            'title' => 'Calculation Error Appeal',
+            'description' => 'Please review the final exam total because the submitted marks appear inconsistent.',
+            'status' => 'escalated',
+        ]);
+
+        $this->actingAs($admin);
+
+        $view = app(FrontendController::class)->adminManageTicket($dispute->id);
+        $ticket = $view->getData()['adminManageTicket'] ?? [];
+
+        $this->assertSame('admin', $ticket['selected_routing'] ?? null);
+        $this->assertContains('LEC001', array_column($ticket['lecturer_options'] ?? [], 'identifier'));
+        $this->assertContains('LEC099', array_column($ticket['lecturer_options'] ?? [], 'identifier'));
+        $this->assertSame(
+            ['lecturer', 'exam_officer', 'hod', 'admin', 'appeals_panel'],
+            array_column($ticket['route_options'] ?? [], 'value')
+        );
+        $this->assertNotEmpty($ticket['routing_help_text'] ?? '');
+    }
+
     public function test_admin_can_mark_a_ticket_as_resolved(): void
     {
         Student::create([
@@ -213,7 +305,7 @@ class AdminManageTicketPageTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_reassign_a_ticket_back_to_a_lecturer(): void
+    public function test_admin_can_reassign_a_ticket_to_any_lecturer(): void
     {
         $department = Department::create([
             'name' => 'Computer Science',
@@ -246,6 +338,12 @@ class AdminManageTicketPageTest extends TestCase
             'lecturer_id' => 'LEC002',
             'full_name' => 'Dr Beta',
             'department' => 'Computer Science',
+        ]);
+
+        Lecturer::create([
+            'lecturer_id' => 'LEC003',
+            'full_name' => 'Dr Gamma',
+            'department' => 'Mathematics',
         ]);
 
         UnitLecturer::create([
@@ -285,21 +383,22 @@ class AdminManageTicketPageTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->postJson('/admin/disputes/'.$dispute->id.'/manage', [
-                'routing_stage' => 'Lecturer Review',
-                'lecturer_id' => 'LEC002',
+                'route_destination' => 'lecturer',
+                'lecturer_id' => 'LEC003',
             ]);
 
         $response
             ->assertOk()
             ->assertJsonPath('changed', true)
-            ->assertJsonPath('data.assigned_to', 'LEC002')
+            ->assertJsonPath('data.assigned_to', 'LEC003')
             ->assertJsonPath('data.assigned_role', 'lecturer')
             ->assertJsonPath('data.status', 'under_review')
-            ->assertJsonPath('data.routing_stage', 'Lecturer Review');
+            ->assertJsonPath('data.routing_stage', 'Lecturer Review')
+            ->assertJsonPath('data.route_destination', 'lecturer');
 
         $this->assertDatabaseHas('disputes', [
             'id' => $dispute->id,
-            'assigned_to' => 'LEC002',
+            'assigned_to' => 'LEC003',
             'assigned_role' => 'lecturer',
             'status' => 'under_review',
             'assignment_name' => 'Lecturer Review',
@@ -312,7 +411,7 @@ class AdminManageTicketPageTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_route_a_ticket_to_the_department_board(): void
+    public function test_admin_can_route_a_ticket_directly_to_the_exam_officer(): void
     {
         Student::create([
             'reg_number' => 'S001',
@@ -322,6 +421,13 @@ class AdminManageTicketPageTest extends TestCase
             'year' => 2,
             'department' => 'Computer Science',
             'faculty' => 'COPAS',
+        ]);
+
+        Staff::create([
+            'staff_id' => 'EX001',
+            'full_name' => 'Ms Exam',
+            'role' => 'exam_officer',
+            'department' => 'Computer Science',
         ]);
 
         Staff::create([
@@ -355,23 +461,24 @@ class AdminManageTicketPageTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->postJson('/admin/disputes/'.$dispute->id.'/manage', [
-                'routing_stage' => 'Department Board',
+                'route_destination' => 'exam_officer',
             ]);
 
         $response
             ->assertOk()
             ->assertJsonPath('changed', true)
-            ->assertJsonPath('data.assigned_to', 'HOD001')
-            ->assertJsonPath('data.assigned_role', 'hod')
+            ->assertJsonPath('data.assigned_to', 'EX001')
+            ->assertJsonPath('data.assigned_role', 'exam_officer')
             ->assertJsonPath('data.status', 'escalated')
-            ->assertJsonPath('data.routing_stage', 'Department Board');
+            ->assertJsonPath('data.routing_stage', 'Exam Officer Review')
+            ->assertJsonPath('data.route_destination', 'exam_officer');
 
         $dispute->refresh();
 
-        $this->assertSame('HOD001', $dispute->assigned_to);
-        $this->assertSame('hod', $dispute->assigned_role);
+        $this->assertSame('EX001', $dispute->assigned_to);
+        $this->assertSame('exam_officer', $dispute->assigned_role);
         $this->assertSame('escalated', $dispute->status);
-        $this->assertSame('Department Board', $dispute->assignment_name);
+        $this->assertSame('Exam Officer Review', $dispute->assignment_name);
         $this->assertNotNull($dispute->escalated_at);
 
         $this->assertTrue(
@@ -380,5 +487,76 @@ class AdminManageTicketPageTest extends TestCase
                 ->where('action', 'Routing Updated')
                 ->exists()
         );
+    }
+
+    public function test_admin_can_route_a_ticket_directly_to_the_head_of_department(): void
+    {
+        Student::create([
+            'reg_number' => 'S001',
+            'first_name' => 'John',
+            'last_name' => 'Smith',
+            'course' => 'BBC',
+            'year' => 2,
+            'department' => 'Computer Science',
+            'faculty' => 'COPAS',
+        ]);
+
+        Staff::create([
+            'staff_id' => 'EX001',
+            'full_name' => 'Ms Exam',
+            'role' => 'exam_officer',
+            'department' => 'Computer Science',
+        ]);
+
+        Staff::create([
+            'staff_id' => 'HOD001',
+            'full_name' => 'Prof HOD',
+            'role' => 'hod',
+            'department' => 'Computer Science',
+        ]);
+
+        $admin = User::create([
+            'name' => 'Case Admin',
+            'email' => 'admin@example.test',
+            'identifier' => 'ADM001',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        $dispute = Dispute::create([
+            'ticket_number' => 'DSP-01004',
+            'student_id' => 'S001',
+            'type' => 'general',
+            'priority' => 'medium',
+            'assigned_to' => 'ADM001',
+            'assigned_role' => 'admin',
+            'title' => 'Department Review Request',
+            'description' => 'Please escalate this case to the HOD directly.',
+            'status' => 'pending',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson('/admin/disputes/'.$dispute->id.'/manage', [
+                'route_destination' => 'hod',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('changed', true)
+            ->assertJsonPath('data.assigned_to', 'HOD001')
+            ->assertJsonPath('data.assigned_role', 'hod')
+            ->assertJsonPath('data.status', 'escalated')
+            ->assertJsonPath('data.routing_stage', 'Head of Department Review')
+            ->assertJsonPath('data.route_destination', 'hod');
+
+        $dispute->refresh();
+
+        $this->assertSame('HOD001', $dispute->assigned_to);
+        $this->assertSame('hod', $dispute->assigned_role);
+        $this->assertSame('escalated', $dispute->status);
+        $this->assertSame('Head of Department Review', $dispute->assignment_name);
+        $this->assertNotNull($dispute->escalated_at);
     }
 }

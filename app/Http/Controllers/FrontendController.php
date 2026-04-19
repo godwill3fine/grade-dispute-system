@@ -474,13 +474,23 @@ class FrontendController extends Controller
             ->get()
             ->keyBy('reg_number');
 
+        $staffReviewers = Staff::query()
+            ->whereIn('role', ['hod', 'exam_officer'])
+            ->orderByRaw("CASE role WHEN 'hod' THEN 0 ELSE 1 END")
+            ->orderBy('department')
+            ->orderBy('staff_id')
+            ->get();
+
         $staff = Staff::query()
-            ->whereIn('staff_id', $actorIdentifiers)
+            ->whereIn('staff_id', $actorIdentifiers->merge($staffReviewers->pluck('staff_id'))->unique()->values())
             ->get()
             ->keyBy('staff_id');
 
         $lecturers = Lecturer::query()
-            ->whereIn('lecturer_id', $mappedLecturerIds->merge($actorIdentifiers)->unique()->values())
+            ->orderBy('department')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->orderBy('lecturer_id')
             ->get()
             ->keyBy('lecturer_id');
 
@@ -573,25 +583,29 @@ class FrontendController extends Controller
         $storedStage = trim((string) ($dispute->assignment_name ?? ''));
         $currentStage = match (true) {
             $isResolved => 'Resolved',
-            $storedStage !== '' => $storedStage,
-            in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Dean Review',
+            $storedStage === 'Admin Intake' => 'Admin Intake',
+            $storedStage === 'Academic Appeals Panel' => 'Academic Appeals Panel',
             ($assignedInfo['role'] ?? '') === 'lecturer' => 'Lecturer Review',
-            in_array($assignedInfo['role'] ?? '', ['hod', 'exam_officer'], true) => 'Department Board',
-            ($assignedInfo['role'] ?? '') === 'admin' => 'Dean Review',
-            default => 'Department Board',
+            ($assignedInfo['role'] ?? '') === 'exam_officer' => 'Exam Officer Review',
+            ($assignedInfo['role'] ?? '') === 'hod' => 'Head of Department Review',
+            ($assignedInfo['role'] ?? '') === 'admin' => 'Admin Review',
+            $storedStage === 'Dean Review' => 'Admin Review',
+            $storedStage === 'Department Board' => 'Department Review',
+            $storedStage !== '' => $storedStage,
+            in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Admin Review',
+            default => 'Admin Review',
         };
 
         $reviewStageMeta = match (true) {
             $isResolved => 'Closed on '.$this->formatPortalDate($dispute->resolved_at ?? $lastActivityAt),
-            in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Routed for higher-level decision on '.$this->formatPortalDate($lastActivityAt),
+            $currentStage === 'Admin Intake' => 'Waiting in the admin intake queue',
+            $currentStage === 'Academic Appeals Panel' => 'Prepared for appeals-panel handling',
             ($assignedInfo['role'] ?? '') === 'lecturer' => 'Awaiting lecturer follow-up',
+            ($assignedInfo['role'] ?? '') === 'exam_officer' => 'Awaiting exam-office follow-up',
+            ($assignedInfo['role'] ?? '') === 'hod' => 'Awaiting head-of-department follow-up',
+            in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Routed for higher-level decision on '.$this->formatPortalDate($lastActivityAt),
             default => 'Updated on '.$this->formatPortalDate($lastActivityAt),
         };
-
-        $routingOptions = ['Lecturer Review', 'Department Board', 'Dean Review', 'Academic Appeals Panel'];
-        if (! in_array($currentStage, $routingOptions, true)) {
-            array_unshift($routingOptions, $currentStage);
-        }
 
         $statusOptions = collect(['pending', 'under_review', 'escalated', 'resolved'])
             ->map(fn (string $value) => [
@@ -601,27 +615,108 @@ class FrontendController extends Controller
             ->values()
             ->all();
 
-        $routeOptions = collect($routingOptions)
-            ->map(fn (string $label) => [
-                'value' => $label,
-                'label' => $label,
+        $selectedLecturerId = ($assignedInfo['role'] ?? '') === 'lecturer'
+            ? ($assignedInfo['identifier'] ?? '')
+            : ($reviewerInfo['identifier'] ?? '');
+
+        $preferredExamOfficer = $this->preferredStaffRouteReviewer($staffReviewers, 'exam_officer', $departmentName);
+        $preferredHod = $this->preferredStaffRouteReviewer($staffReviewers, 'hod', $departmentName);
+        $selectedRouting = $this->adminRouteDestinationValue($dispute);
+
+        $routeOptions = collect([
+            [
+                'value' => 'lecturer',
+                'label' => 'Lecturer Review',
+            ],
+            [
+                'value' => 'exam_officer',
+                'label' => $preferredExamOfficer
+                    ? 'Exam Officer - '.$preferredExamOfficer->formal_name
+                    : 'Exam Officer',
+            ],
+            [
+                'value' => 'hod',
+                'label' => $preferredHod
+                    ? 'Head of Department - '.$preferredHod->formal_name
+                    : 'Head of Department',
+            ],
+            [
+                'value' => 'admin',
+                'label' => 'Admin Review',
+            ],
+            [
+                'value' => 'appeals_panel',
+                'label' => 'Academic Appeals Panel',
+            ],
+        ])->values()->all();
+
+        $lecturerOptions = $lecturers
+            ->map(function (Lecturer $lecturer) use (
+                $departmentName,
+                $lecturers,
+                $mappedLecturerIds,
+                $selectedLecturerId,
+                $staff,
+                $students,
+                $users
+            ) {
+                $info = $this->resolveDisputeActorInfo(
+                    trim((string) $lecturer->lecturer_id),
+                    $users,
+                    $students,
+                    $lecturers,
+                    $staff,
+                );
+
+                $flags = [];
+                if (($info['identifier'] ?? '') === $selectedLecturerId) {
+                    $flags[] = 'Current';
+                }
+
+                if ($mappedLecturerIds->contains((string) $lecturer->lecturer_id)) {
+                    $flags[] = 'Mapped';
+                }
+
+                $lecturerDepartment = trim((string) ($lecturer->department ?? ''));
+                if (
+                    $departmentName !== ''
+                    && $lecturerDepartment !== ''
+                    && Str::lower($lecturerDepartment) === Str::lower($departmentName)
+                ) {
+                    $flags[] = 'Same Department';
+                }
+
+                $baseLabel = trim((string) ($info['name'] ?? '')) !== ''
+                    ? trim((string) $info['name'])
+                    : trim((string) $lecturer->lecturer_id);
+
+                if ($lecturerDepartment !== '') {
+                    $baseLabel .= ' - '.$lecturerDepartment;
+                }
+
+                if (! empty($flags)) {
+                    $baseLabel .= ' ('.implode(', ', $flags).')';
+                }
+
+                return [
+                    'identifier' => trim((string) $lecturer->lecturer_id),
+                    'label' => $baseLabel,
+                    'sort_bucket' => match (true) {
+                        trim((string) $lecturer->lecturer_id) === $selectedLecturerId => 0,
+                        $mappedLecturerIds->contains((string) $lecturer->lecturer_id) => 1,
+                        $departmentName !== ''
+                            && $lecturerDepartment !== ''
+                            && Str::lower($lecturerDepartment) === Str::lower($departmentName) => 2,
+                        default => 3,
+                    },
+                ];
+            })
+            ->filter(fn (array $option) => $option['identifier'] !== '')
+            ->sortBy([
+                ['sort_bucket', 'asc'],
+                ['label', 'asc'],
             ])
-            ->values()
-            ->all();
-
-        $lecturerOptions = $mappedLecturerIds
-            ->map(fn (string $lecturerId) => $this->resolveDisputeActorInfo($lecturerId, $users, $students, $lecturers, $staff))
-            ->filter(fn (array $info) => ($info['identifier'] ?? '') !== '')
-            ->unique('identifier')
             ->values();
-
-        if (
-            ($assignedInfo['role'] ?? '') === 'lecturer'
-            && ($assignedInfo['identifier'] ?? '') !== ''
-            && ! $lecturerOptions->contains('identifier', $assignedInfo['identifier'])
-        ) {
-            $lecturerOptions->prepend($assignedInfo);
-        }
 
         $timeline = $logs
             ->map(function (DisputeLog $log) use ($dispute, $users, $students, $lecturers, $staff) {
@@ -752,7 +847,11 @@ class FrontendController extends Controller
             'status_label' => $statusLabel,
             'status_meta' => match (true) {
                 $isResolved => 'Closed and preserved for audit history',
-                in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Awaiting final admin review',
+                $currentStage === 'Academic Appeals Panel' => 'Awaiting appeals-panel handling',
+                $currentStage === 'Admin Intake' => 'Waiting in the intake queue',
+                $currentStage === 'Exam Officer Review' => 'Awaiting exam-office review',
+                $currentStage === 'Head of Department Review' => 'Awaiting HOD review',
+                in_array($statusKey, ['escalated', 'escalated_admin'], true) => 'Awaiting admin follow-up',
                 $statusKey === 'under_review' => 'Currently under active review',
                 $statusKey === 'pending' => 'Awaiting first response',
                 default => 'Needs administrative attention',
@@ -777,10 +876,8 @@ class FrontendController extends Controller
             },
             'last_update_label' => $lastUpdateLabel,
             'selected_status' => $statusKey !== '' ? $statusKey : 'pending',
-            'selected_routing' => $currentStage,
-            'selected_lecturer' => ($assignedInfo['role'] ?? '') === 'lecturer'
-                ? ($assignedInfo['identifier'] ?? '')
-                : ($reviewerInfo['identifier'] ?? ''),
+            'selected_routing' => $selectedRouting,
+            'selected_lecturer' => $selectedLecturerId,
             'reviewer_name' => ($reviewerInfo['name'] ?? '') !== '' ? $reviewerInfo['name'] : 'Not assigned',
             'student_name' => ($studentInfo['name'] ?? '') !== '' ? $studentInfo['name'] : 'Student',
             'header_badges' => [
@@ -790,10 +887,15 @@ class FrontendController extends Controller
             ],
             'status_options' => $statusOptions,
             'route_options' => $routeOptions,
-            'lecturer_options' => $lecturerOptions->map(fn (array $info) => [
-                'identifier' => $info['identifier'],
-                'label' => $info['name'],
-            ])->values()->all(),
+            'lecturer_options' => $lecturerOptions
+                ->map(fn (array $option) => [
+                    'identifier' => $option['identifier'],
+                    'label' => $option['label'],
+                ])
+                ->values()
+                ->all(),
+            'lecturer_help_text' => 'Any lecturer can be selected here. Course-mapped reviewers are listed first for convenience.',
+            'routing_help_text' => 'This chooses the next owner of the ticket. Lecturer routes use the selector above, while HOD and Exam Officer routes send the ticket directly to those staff queues.',
             'internal_notes' => $internalNotes,
             'people' => array_slice($people, 0, 3),
             'timeline' => $timeline->all(),
@@ -817,6 +919,50 @@ class FrontendController extends Controller
                 ->values()
                 ->all(),
         ];
+    }
+
+    private function preferredStaffRouteReviewer($staffReviewers, string $role, string $departmentName): ?Staff
+    {
+        $matches = $staffReviewers
+            ->filter(fn (Staff $staffMember) => trim((string) ($staffMember->role ?? '')) === $role)
+            ->values();
+
+        if ($matches->isEmpty()) {
+            return null;
+        }
+
+        if ($departmentName !== '') {
+            $departmentMatch = $matches->first(function (Staff $staffMember) use ($departmentName): bool {
+                return Str::lower(trim((string) ($staffMember->department ?? ''))) === Str::lower($departmentName);
+            });
+
+            if ($departmentMatch instanceof Staff) {
+                return $departmentMatch;
+            }
+        }
+
+        $firstMatch = $matches->first();
+
+        return $firstMatch instanceof Staff ? $firstMatch : null;
+    }
+
+    private function adminRouteDestinationValue(Dispute $dispute): string
+    {
+        $assignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
+        $storedStage = trim((string) ($dispute->assignment_name ?? ''));
+
+        return match (true) {
+            $storedStage === 'Academic Appeals Panel' => 'appeals_panel',
+            $assignedRole === 'lecturer' => 'lecturer',
+            $assignedRole === 'exam_officer' => 'exam_officer',
+            $assignedRole === 'hod' => 'hod',
+            $assignedRole === 'admin' => 'admin',
+            $storedStage === 'Lecturer Review' => 'lecturer',
+            $storedStage === 'Head of Department Review' => 'hod',
+            $storedStage === 'Exam Officer Review' => 'exam_officer',
+            $storedStage === 'Admin Review' || $storedStage === 'Dean Review' || $storedStage === 'Admin Intake' => 'admin',
+            default => 'admin',
+        };
     }
 
     private function buildAdminCreateTicketMeta(): array
