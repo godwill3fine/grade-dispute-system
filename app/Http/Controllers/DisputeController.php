@@ -568,7 +568,7 @@ class DisputeController extends Controller
                 $dispute->assigned_to,
                 'New Dispute Assigned',
                 'A new dispute has been assigned to you. Ticket: '.$dispute->ticket_number,
-                '/portal/admin/disputes/'.$dispute->id,
+                $this->reviewerPortalLink($dispute, trim((string) $dispute->assigned_role)),
                 $dispute->id
             );
         }
@@ -606,6 +606,7 @@ class DisputeController extends Controller
     {
         $validated = $request->validate([
             'status' => ['nullable', Rule::in(['pending', 'under_review', 'resolved', 'escalated'])],
+            'route_destination' => ['nullable', Rule::in(['lecturer', 'exam_officer', 'hod', 'admin', 'appeals_panel'])],
             'routing_stage' => ['nullable', Rule::in(['Lecturer Review', 'Department Board', 'Dean Review', 'Academic Appeals Panel'])],
             'lecturer_id' => ['nullable', 'string', 'exists:lecturers,lecturer_id'],
         ]);
@@ -626,11 +627,18 @@ class DisputeController extends Controller
         $lecturerId = isset($validated['lecturer_id'])
             ? trim((string) $validated['lecturer_id'])
             : null;
-        $routingStage = isset($validated['routing_stage'])
-            ? trim((string) $validated['routing_stage'])
-            : ($lecturerId !== null && $lecturerId !== '' ? 'Lecturer Review' : null);
+        $routeDestination = isset($validated['route_destination'])
+            ? trim((string) $validated['route_destination'])
+            : $this->normalizeLegacyAdminRouteDestination(
+                isset($validated['routing_stage']) ? trim((string) $validated['routing_stage']) : null,
+                $dispute,
+            );
 
-        if (($statusInput === null || $statusInput === '') && ($routingStage === null || $routingStage === '')) {
+        if (($routeDestination === null || $routeDestination === '') && $lecturerId !== null && $lecturerId !== '') {
+            $routeDestination = 'lecturer';
+        }
+
+        if (($statusInput === null || $statusInput === '') && ($routeDestination === null || $routeDestination === '')) {
             return response()->json(['error' => 'No ticket updates were provided.'], 422);
         }
 
@@ -645,8 +653,8 @@ class DisputeController extends Controller
         $newStage = trim((string) ($dispute->assignment_name ?? ''));
         $routingReason = null;
 
-        if (is_string($routingStage) && $routingStage !== '') {
-            $resolvedRouting = $this->resolveAdminRoutingSelection($dispute, $routingStage, $lecturerId, $performedBy);
+        if (is_string($routeDestination) && $routeDestination !== '') {
+            $resolvedRouting = $this->resolveAdminRoutingSelection($dispute, $routeDestination, $lecturerId, $performedBy);
             $newAssignedTo = $resolvedRouting['assigned_to'];
             $newAssignedRole = $resolvedRouting['assigned_role'];
             $newStage = $resolvedRouting['stage'];
@@ -663,7 +671,7 @@ class DisputeController extends Controller
 
         $statusChanged = $newStatus !== $oldStatus;
         $assigneeChanged = $newAssignedTo !== $oldAssignedTo || $newAssignedRole !== $oldAssignedRole;
-        $stageChanged = is_string($routingStage) && $routingStage !== '' && $newStage !== $oldStage;
+        $stageChanged = is_string($routeDestination) && $routeDestination !== '' && $newStage !== $oldStage;
 
         if (! $statusChanged && ! $assigneeChanged && ! $stageChanged) {
             return response()->json([
@@ -783,7 +791,7 @@ class DisputeController extends Controller
                     $newAssignedTo,
                     'Dispute Assignment Updated',
                     'Ticket '.$dispute->ticket_number.' was routed to you for '.$newStage.'.',
-                    '/portal/admin/disputes/'.$dispute->id,
+                    $this->reviewerPortalLink($dispute, $newAssignedRole),
                     $dispute->id
                 );
             }
@@ -798,6 +806,7 @@ class DisputeController extends Controller
                 'assigned_to' => $dispute->assigned_to,
                 'assigned_role' => $dispute->assigned_role,
                 'routing_stage' => $dispute->assignment_name,
+                'route_destination' => $this->adminRouteDestinationValue($dispute),
             ],
         ]);
     }
@@ -1356,22 +1365,32 @@ class DisputeController extends Controller
 
     private function resolveAdminRoutingSelection(
         Dispute $dispute,
-        string $routingStage,
+        string $routeDestination,
         ?string $lecturerId,
         string $adminIdentifier
     ): array {
-        return match ($routingStage) {
+        return match ($routeDestination) {
             'Lecturer Review' => $this->resolveLecturerRoutingSelection($dispute, $lecturerId),
+            'lecturer' => $this->resolveLecturerRoutingSelection($dispute, $lecturerId),
+            'exam_officer' => $this->resolveStaffRoutingSelection($dispute, 'exam_officer', 'Exam Officer Review'),
+            'hod' => $this->resolveStaffRoutingSelection($dispute, 'hod', 'Head of Department Review'),
             'Department Board' => $this->resolveDepartmentBoardRoutingSelection($dispute),
-            'Dean Review', 'Academic Appeals Panel' => [
+            'Dean Review', 'admin' => [
                 'assigned_to' => $adminIdentifier,
                 'assigned_role' => 'admin',
-                'stage' => $routingStage,
+                'stage' => 'Admin Review',
                 'status' => 'escalated',
-                'reason' => 'Manually routed to '.$routingStage.' by admin.',
+                'reason' => 'Manually routed to Admin Review by admin.',
+            ],
+            'Academic Appeals Panel', 'appeals_panel' => [
+                'assigned_to' => $adminIdentifier,
+                'assigned_role' => 'admin',
+                'stage' => 'Academic Appeals Panel',
+                'status' => 'escalated',
+                'reason' => 'Manually routed to the Academic Appeals Panel by admin.',
             ],
             default => throw ValidationException::withMessages([
-                'routing_stage' => ['The selected routing stage is not supported.'],
+                'route_destination' => ['The selected routing destination is not supported.'],
             ]),
         };
     }
@@ -1410,39 +1429,47 @@ class DisputeController extends Controller
         ];
     }
 
-    private function resolveDepartmentBoardRoutingSelection(Dispute $dispute): array
+    private function resolveStaffRoutingSelection(Dispute $dispute, string $staffRole, string $stage): array
     {
         $currentAssignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
         $currentAssignedTo = trim((string) ($dispute->assigned_to ?? ''));
 
-        if (in_array($currentAssignedRole, ['hod', 'exam_officer'], true) && $currentAssignedTo !== '') {
+        if ($currentAssignedRole === $staffRole && $currentAssignedTo !== '') {
             return [
                 'assigned_to' => $currentAssignedTo,
                 'assigned_role' => $currentAssignedRole,
-                'stage' => 'Department Board',
+                'stage' => $stage,
                 'status' => 'escalated',
-                'reason' => 'Manually routed to Department Board by admin.',
+                'reason' => 'Manually routed to '.$stage.' by admin.',
             ];
         }
 
-        $staffMember = Staff::query()
-            ->whereIn('role', ['hod', 'exam_officer'])
-            ->orderByRaw("CASE role WHEN 'hod' THEN 0 ELSE 1 END")
-            ->first();
+        $staffMember = $this->findPreferredStaffReviewerForDispute($dispute, $staffRole);
 
         if (! $staffMember) {
+            $roleLabel = $staffRole === 'hod' ? 'head of department' : str_replace('_', ' ', $staffRole);
+
             throw ValidationException::withMessages([
-                'routing_stage' => ['No HOD or exam officer is available for department-board routing.'],
+                'route_destination' => ['No '.$roleLabel.' reviewer is available for this route.'],
             ]);
         }
 
         return [
-            'assigned_to' => $staffMember->staff_id,
+            'assigned_to' => trim((string) $staffMember->staff_id),
             'assigned_role' => trim((string) $staffMember->role),
-            'stage' => 'Department Board',
+            'stage' => $stage,
             'status' => 'escalated',
-            'reason' => 'Manually routed to Department Board by admin.',
+            'reason' => 'Manually routed to '.$stage.' by admin.',
         ];
+    }
+
+    private function resolveDepartmentBoardRoutingSelection(Dispute $dispute): array
+    {
+        $preferredRoute = $this->findPreferredStaffReviewerForDispute($dispute, 'hod')
+            ? 'hod'
+            : 'exam_officer';
+
+        return $this->resolveAdminRoutingSelection($dispute, $preferredRoute, null, '');
     }
 
     private function defaultAdminRoutingStage(Dispute $dispute): string
@@ -1453,13 +1480,101 @@ class DisputeController extends Controller
 
         return match (true) {
             $statusKey === 'resolved' => 'Resolved',
-            $storedStage !== '' => $storedStage,
-            $statusKey === 'escalated' => 'Dean Review',
+            $storedStage === 'Admin Intake' => 'Admin Intake',
+            $storedStage === 'Academic Appeals Panel' => 'Academic Appeals Panel',
             $assignedRole === 'lecturer' => 'Lecturer Review',
-            in_array($assignedRole, ['hod', 'exam_officer'], true) => 'Department Board',
-            $assignedRole === 'admin' => 'Dean Review',
-            default => 'Department Board',
+            $assignedRole === 'exam_officer' => 'Exam Officer Review',
+            $assignedRole === 'hod' => 'Head of Department Review',
+            $assignedRole === 'admin' => $storedStage !== '' && $storedStage !== 'Dean Review' ? $storedStage : 'Admin Review',
+            $storedStage === 'Dean Review' => 'Admin Review',
+            $storedStage === 'Department Board' => 'Department Review',
+            $storedStage !== '' => $storedStage,
+            $statusKey === 'escalated' => 'Admin Review',
+            default => 'Admin Review',
         };
+    }
+
+    private function normalizeLegacyAdminRouteDestination(?string $routingStage, Dispute $dispute): ?string
+    {
+        $stage = trim((string) ($routingStage ?? ''));
+
+        return match ($stage) {
+            '' => null,
+            'Lecturer Review' => 'lecturer',
+            'Department Board' => $this->findPreferredStaffReviewerForDispute($dispute, 'hod') ? 'hod' : 'exam_officer',
+            'Dean Review' => 'admin',
+            'Academic Appeals Panel' => 'appeals_panel',
+            default => null,
+        };
+    }
+
+    private function adminRouteDestinationValue(Dispute $dispute): string
+    {
+        $assignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
+        $storedStage = trim((string) ($dispute->assignment_name ?? ''));
+
+        return match (true) {
+            $storedStage === 'Academic Appeals Panel' => 'appeals_panel',
+            $assignedRole === 'lecturer' => 'lecturer',
+            $assignedRole === 'exam_officer' => 'exam_officer',
+            $assignedRole === 'hod' => 'hod',
+            $assignedRole === 'admin' => 'admin',
+            $storedStage === 'Lecturer Review' => 'lecturer',
+            $storedStage === 'Exam Officer Review' => 'exam_officer',
+            $storedStage === 'Head of Department Review' => 'hod',
+            default => 'admin',
+        };
+    }
+
+    private function findPreferredStaffReviewerForDispute(Dispute $dispute, string $staffRole): ?Staff
+    {
+        $departmentName = $this->resolveDisputeDepartmentName($dispute);
+
+        $reviewer = Staff::query()
+            ->where('role', $staffRole)
+            ->when($departmentName !== '', function ($builder) use ($departmentName) {
+                $builder->where('department', $departmentName);
+            })
+            ->orderBy('staff_id')
+            ->first();
+
+        if (! $reviewer && $departmentName !== '') {
+            $reviewer = Staff::query()
+                ->where('role', $staffRole)
+                ->orderBy('staff_id')
+                ->first();
+        }
+
+        return $reviewer;
+    }
+
+    private function resolveDisputeDepartmentName(Dispute $dispute): string
+    {
+        $studentDepartment = trim((string) (
+            Student::query()
+                ->where('reg_number', $dispute->student_id)
+                ->value('department')
+        ));
+
+        if ($studentDepartment !== '') {
+            return $studentDepartment;
+        }
+
+        $unitDepartment = trim((string) (
+            Unit::query()
+                ->leftJoin('departments', 'departments.id', '=', 'units.department_id')
+                ->where('units.unit_code', $dispute->unit_code)
+                ->value('departments.name')
+        ));
+
+        return $unitDepartment;
+    }
+
+    private function reviewerPortalLink(Dispute $dispute, string $assignedRole): string
+    {
+        return in_array($assignedRole, ['lecturer', 'hod', 'exam_officer'], true)
+            ? '/portal/lecturer/disputes/'.$dispute->id
+            : '/portal/admin/disputes/'.$dispute->id;
     }
 
     private function formatAssignmentSummary(string $identifier, string $role): string

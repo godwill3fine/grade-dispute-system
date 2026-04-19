@@ -2752,7 +2752,7 @@ export async function initAdminManageTicket() {
             lecturerUpdateBtn,
             {
                 lecturer_id: lecturerId,
-                routing_stage: 'Lecturer Review',
+                route_destination: 'lecturer',
             },
             `Lecturer assignment updated for ${ticketNumber}.`,
         );
@@ -2773,21 +2773,21 @@ export async function initAdminManageTicket() {
     });
 
     routingBtn?.addEventListener('click', async () => {
-        const routingStage = readSelectedValue(routingSelect);
+        const routeDestination = readSelectedValue(routingSelect);
         const lecturerId = readSelectedValue(lecturerSelect);
 
-        if (!routingStage) {
+        if (!routeDestination) {
             showAlert('Select a routing destination before continuing.');
             return;
         }
 
-        if (routingStage === 'Lecturer Review' && !lecturerId) {
+        if (routeDestination === 'lecturer' && !lecturerId) {
             showAlert('Select a lecturer before routing this ticket to lecturer review.');
             return;
         }
 
-        const payload = { routing_stage: routingStage };
-        if (routingStage === 'Lecturer Review') {
+        const payload = { route_destination: routeDestination };
+        if (routeDestination === 'lecturer') {
             payload.lecturer_id = lecturerId;
         }
 
@@ -2796,20 +2796,20 @@ export async function initAdminManageTicket() {
 
     applyChangesBtn?.addEventListener('click', async () => {
         const status = readSelectedValue(statusSelect);
-        const routingStage = readSelectedValue(routingSelect);
+        const routeDestination = readSelectedValue(routingSelect);
         const lecturerId = readSelectedValue(lecturerSelect);
 
-        if (routingStage === 'Lecturer Review' && !lecturerId) {
+        if (routeDestination === 'lecturer' && !lecturerId) {
             showAlert('Select a lecturer before applying lecturer-review routing.');
             return;
         }
 
         const payload = {
             status,
-            routing_stage: routingStage,
+            route_destination: routeDestination,
         };
 
-        if (routingStage === 'Lecturer Review' && lecturerId) {
+        if (routeDestination === 'lecturer' && lecturerId) {
             payload.lecturer_id = lecturerId;
         }
 
