@@ -25,6 +25,7 @@ const ADMIN_DISPUTE_PAGE_SIZE = 7;
 const ADMIN_ACTIVITY_PAGE_SIZE = 7;
 const ADMIN_USER_PAGE_SIZE = 7;
 const ADMIN_USERS_FLASH_KEY = 'gds_admin_users_flash';
+const ADMIN_DISPUTES_FLASH_KEY = 'gds_admin_disputes_flash';
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const DEFAULT_ADMIN_SETTINGS = {
     standard_submission_window_days: '14',
@@ -72,6 +73,43 @@ function consumeAdminUsersFlash() {
 
 function maybeApplyAdminUsersFlash() {
     const flash = consumeAdminUsersFlash();
+    if (!flash || typeof flash !== 'object') {
+        return;
+    }
+
+    if (flash.toastMessage) {
+        showToast(flash.toastMessage, flash.toastTone ?? 'success');
+    }
+
+    if (flash.alertMessage) {
+        showAlert(flash.alertMessage, flash.alertTone ?? 'warning');
+    }
+}
+
+function persistAdminDisputesFlash(payload) {
+    try {
+        window.sessionStorage.setItem(ADMIN_DISPUTES_FLASH_KEY, JSON.stringify(payload ?? {}));
+    } catch {
+        // Ignore unavailable storage and continue without cross-page flash state.
+    }
+}
+
+function consumeAdminDisputesFlash() {
+    try {
+        const stored = window.sessionStorage.getItem(ADMIN_DISPUTES_FLASH_KEY);
+        if (!stored) {
+            return null;
+        }
+
+        window.sessionStorage.removeItem(ADMIN_DISPUTES_FLASH_KEY);
+        return JSON.parse(stored);
+    } catch {
+        return null;
+    }
+}
+
+function maybeApplyAdminDisputesFlash() {
+    const flash = consumeAdminDisputesFlash();
     if (!flash || typeof flash !== 'object') {
         return;
     }
@@ -165,6 +203,19 @@ function readAdminDisputeMeta() {
         };
     } catch {
         return { departments: [], units: [] };
+    }
+}
+
+function readAdminCreateTicketMeta() {
+    const source = document.getElementById('adminCreateTicketMeta');
+    if (!source) {
+        return { departments: [], ticket_types: [], issue_types: [], priority_options: [], general_route_options: [], academic_terms: [] };
+    }
+
+    try {
+        return JSON.parse(source.textContent ?? '{}');
+    } catch {
+        return { departments: [], ticket_types: [], issue_types: [], priority_options: [], general_route_options: [], academic_terms: [] };
     }
 }
 
@@ -1230,6 +1281,7 @@ export async function initAdminDashboard() {
 
 export async function initAdminDisputes() {
     adminDisputeMeta = readAdminDisputeMeta();
+    maybeApplyAdminDisputesFlash();
 
     const searchInput = document.getElementById('adminDisputeSearch');
     const statusFilter = document.getElementById('adminDisputeStatusFilter');
@@ -1311,7 +1363,7 @@ export async function initAdminDisputes() {
     });
 
     createBtn?.addEventListener('click', () => {
-        showToast('Admin ticket creation will be added on the next pass.', 'primary');
+        window.location.assign('/portal/admin/disputes/create');
     });
 
     tableBody?.addEventListener('click', (event) => {
@@ -2151,6 +2203,457 @@ export async function initAdminEscalations() {
     } catch {
         showAlert('Unable to load escalated disputes.');
     }
+}
+
+export async function initAdminCreateTicket() {
+    readAdminCreateTicketMeta();
+
+    const form = document.getElementById('adminCreateTicketForm');
+    const submissionModeInput = document.getElementById('adminCreateTicketSubmissionMode');
+    const draftBtn = document.getElementById('adminCreateTicketDraftBtn');
+    const submitBtn = document.getElementById('adminCreateTicketSubmitBtn');
+    const feedback = document.getElementById('adminCreateTicketFeedback');
+    const studentLookupInput = document.getElementById('adminStudentLookup');
+    const studentVerifyBtn = document.getElementById('adminStudentVerifyBtn');
+    const verifiedStudentIdInput = document.getElementById('adminVerifiedStudentId');
+    const studentNameInput = document.getElementById('adminStudentName');
+    const studentEmailInput = document.getElementById('adminStudentEmail');
+    const studentCourseInput = document.getElementById('adminStudentCourse');
+    const studentYearInput = document.getElementById('adminStudentYear');
+    const studentFacultyInput = document.getElementById('adminStudentFaculty');
+    const departmentSelect = document.getElementById('adminDepartmentRoute');
+    const ticketTypeSelect = document.getElementById('adminCreateTicketType');
+    const unitInput = document.getElementById('adminUnitCodeInput');
+    const unitList = document.getElementById('adminUnitCodeList');
+    const lecturerSelect = document.getElementById('adminAssignedLecturer');
+    const generalRouteSelect = document.getElementById('adminGeneralRoute');
+    const prioritySelect = document.getElementById('adminInitialPriority');
+    const notifyStudentToggle = document.getElementById('adminNotifyStudentToggle');
+    const notifyAssigneeToggle = document.getElementById('adminNotifyAssigneeToggle');
+    const routeImmediatelyToggle = document.getElementById('adminRouteImmediatelyToggle');
+    const followUpToggle = document.getElementById('adminFollowUpToggle');
+    const attachmentsInput = document.getElementById('adminTicketAttachments');
+    const attachmentDropzone = document.getElementById('adminTicketAttachmentDropzone');
+    const attachmentBrowseBtn = document.getElementById('adminTicketAttachmentBrowseBtn');
+    const attachmentList = document.getElementById('adminTicketAttachmentList');
+    const snapshotStatus = document.getElementById('adminCreateTicketSnapshotStatus');
+    const snapshotQueue = document.getElementById('adminCreateTicketSnapshotQueue');
+    const snapshotPriority = document.getElementById('adminCreateTicketSnapshotPriority');
+    const snapshotNotifications = document.getElementById('adminCreateTicketSnapshotNotifications');
+
+    let unitLookupTimer = null;
+
+    const setFeedback = (message = '', tone = 'danger') => {
+        if (!feedback) {
+            return;
+        }
+
+        feedback.textContent = message;
+        feedback.classList.toggle('text-danger', message !== '' && tone !== 'success');
+        feedback.classList.toggle('text-success', message !== '' && tone === 'success');
+    };
+
+    const typeIsUnit = () => String(ticketTypeSelect?.value ?? 'unit').trim().toLowerCase() === 'unit';
+
+    const clearVerifiedStudent = () => {
+        if (verifiedStudentIdInput) {
+            verifiedStudentIdInput.value = '';
+        }
+
+        [studentNameInput, studentEmailInput, studentCourseInput, studentYearInput, studentFacultyInput].forEach((input) => {
+            if (input) {
+                input.value = '';
+            }
+        });
+    };
+
+    const renderAttachmentList = (files) => {
+        if (!attachmentList) {
+            return;
+        }
+
+        if (!files.length) {
+            attachmentList.classList.add('d-none');
+            attachmentList.innerHTML = '';
+            return;
+        }
+
+        attachmentList.classList.remove('d-none');
+        attachmentList.innerHTML = files
+            .map((file) => {
+                const sizeKb = Math.max(1, Math.round((Number(file.size ?? 0) || 0) / 1024));
+
+                return `
+                    <div class="ticket-attachment-link">
+                        <span class="material-symbols-outlined">attach_file</span>
+                        <span class="ticket-attachment-copy">
+                            <strong>${escapeHtml(file.name ?? 'Attachment')}</strong>
+                            <span>${escapeHtml(`${sizeKb} KB`)}</span>
+                        </span>
+                    </div>
+                `;
+            })
+            .join('');
+    };
+
+    const populateLecturerOptions = (options = [], selectedValue = '') => {
+        if (!lecturerSelect) {
+            return;
+        }
+
+        const rows = Array.isArray(options) ? options : [];
+        lecturerSelect.innerHTML = [
+            '<option value="">Unassigned / Auto-route</option>',
+            ...rows.map((option) => {
+                const labelParts = [String(option.name ?? '').trim()];
+                const course = String(option.course ?? '').trim();
+                if (course) {
+                    labelParts.push(course);
+                }
+
+                const label = labelParts.filter(Boolean).join(' - ');
+                const identifier = String(option.identifier ?? '').trim();
+                const selected = identifier !== '' && identifier === selectedValue ? ' selected' : '';
+
+                return `<option value="${escapeHtml(identifier)}"${selected}>${escapeHtml(label || identifier)}</option>`;
+            }),
+        ].join('');
+    };
+
+    const syncSnapshot = () => {
+        const isUnit = typeIsUnit();
+        const immediate = Boolean(routeImmediatelyToggle?.checked);
+        const selectedLecturerText = lecturerSelect?.selectedOptions?.[0]?.textContent?.trim() ?? '';
+        const selectedRouteText = generalRouteSelect?.selectedOptions?.[0]?.textContent?.trim() ?? 'Admin Review';
+        const priorityText = prioritySelect?.selectedOptions?.[0]?.textContent?.trim() ?? 'Medium';
+
+        if (snapshotStatus) {
+            snapshotStatus.textContent = immediate
+                ? (isUnit ? 'Under review' : 'Escalated for review')
+                : 'Pending intake';
+        }
+
+        if (snapshotQueue) {
+            snapshotQueue.textContent = !immediate
+                ? 'Admin intake'
+                : (isUnit
+                    ? (selectedLecturerText && !selectedLecturerText.startsWith('Unassigned') ? selectedLecturerText : 'Auto-route from unit mapping')
+                    : selectedRouteText);
+        }
+
+        if (snapshotPriority) {
+            snapshotPriority.textContent = priorityText;
+        }
+
+        if (snapshotNotifications) {
+            const labels = [];
+            if (notifyStudentToggle?.checked) {
+                labels.push('student');
+            }
+
+            if (notifyAssigneeToggle?.checked && immediate) {
+                labels.push('reviewer');
+            }
+
+            if (!labels.length) {
+                snapshotNotifications.textContent = 'No immediate alerts';
+            } else if (labels.length === 2) {
+                snapshotNotifications.textContent = 'Student and reviewer alerts enabled';
+            } else {
+                snapshotNotifications.textContent = `${labels[0].charAt(0).toUpperCase()}${labels[0].slice(1)} alerts enabled`;
+            }
+        }
+
+        if (!routeImmediatelyToggle) {
+            return;
+        }
+
+        if (!immediate) {
+            notifyAssigneeToggle?.setAttribute('disabled', 'disabled');
+        } else {
+            notifyAssigneeToggle?.removeAttribute('disabled');
+        }
+    };
+
+    const syncTypeSections = () => {
+        const isUnit = typeIsUnit();
+
+        document.querySelectorAll('[data-admin-type-section]').forEach((section) => {
+            const sectionType = String(section.getAttribute('data-admin-type-section') ?? '').trim().toLowerCase();
+            section.classList.toggle('d-none', sectionType !== (isUnit ? 'unit' : 'general'));
+        });
+
+        if (unitInput) {
+            unitInput.required = isUnit;
+        }
+
+        if (generalRouteSelect) {
+            generalRouteSelect.required = !isUnit;
+        }
+
+        syncSnapshot();
+    };
+
+    const verifyStudent = async () => {
+        const query = String(studentLookupInput?.value ?? '').trim();
+        if (!query) {
+            setFeedback('Enter a student ID or email before verification.');
+            showAlert('Enter a student ID or email before verification.');
+            return;
+        }
+
+        setFeedback('');
+        setButtonBusyState(studentVerifyBtn, true, 'Verifying...');
+
+        try {
+            const response = await apiGet(`/admin/students/lookup?q=${encodeURIComponent(query)}`);
+
+            if (verifiedStudentIdInput) {
+                verifiedStudentIdInput.value = String(response?.student_id ?? '').trim();
+            }
+
+            if (studentNameInput) {
+                studentNameInput.value = String(response?.name ?? '').trim();
+            }
+
+            if (studentEmailInput) {
+                studentEmailInput.value = String(response?.email ?? '').trim();
+            }
+
+            if (studentCourseInput) {
+                studentCourseInput.value = String(response?.course ?? '').trim();
+            }
+
+            if (studentYearInput) {
+                studentYearInput.value = String(response?.year_label ?? '').trim();
+            }
+
+            if (studentFacultyInput) {
+                studentFacultyInput.value = String(response?.faculty ?? '').trim();
+            }
+
+            if (departmentSelect && !String(departmentSelect.value ?? '').trim()) {
+                departmentSelect.value = String(response?.department ?? '').trim();
+            }
+
+            setFeedback(`Verified ${String(response?.name ?? 'student').trim()}.`, 'success');
+            showToast(`Verified ${String(response?.name ?? 'student').trim()}.`, 'success');
+        } catch (error) {
+            clearVerifiedStudent();
+            const message = firstErrorMessage(error, 'Unable to verify that student.');
+            setFeedback(message);
+            showAlert(message);
+        } finally {
+            setButtonBusyState(studentVerifyBtn, false);
+            syncSnapshot();
+        }
+    };
+
+    const loadUnitSuggestions = async (query) => {
+        if (!unitList) {
+            return;
+        }
+
+        if (!query || query.length < 2) {
+            unitList.innerHTML = '';
+            return;
+        }
+
+        try {
+            const data = await apiGet(`/units/search?q=${encodeURIComponent(query)}`);
+            const items = Array.isArray(data) ? data : [];
+
+            unitList.innerHTML = items
+                .map((unit) => `<option value="${escapeHtml(unit.unit_code ?? '')}">${escapeHtml(unit.unit_name ?? '')}</option>`)
+                .join('');
+        } catch {
+            unitList.innerHTML = '';
+        }
+    };
+
+    const loadSelectedUnitRouting = async () => {
+        const unitCode = String(unitInput?.value ?? '').trim();
+        if (!typeIsUnit()) {
+            populateLecturerOptions([]);
+            syncSnapshot();
+            return;
+        }
+
+        if (!unitCode) {
+            populateLecturerOptions([]);
+            syncSnapshot();
+            return;
+        }
+
+        try {
+            const response = await apiGet(`/admin/units/routing?unit_code=${encodeURIComponent(unitCode)}`);
+            populateLecturerOptions(response?.lecturer_options ?? [], String(lecturerSelect?.value ?? '').trim());
+
+            if (departmentSelect && !String(departmentSelect.value ?? '').trim() && response?.department_name) {
+                departmentSelect.value = String(response.department_name).trim();
+            }
+
+            if (studentFacultyInput && !String(studentFacultyInput.value ?? '').trim() && response?.faculty_name) {
+                studentFacultyInput.value = String(response.faculty_name).trim();
+            }
+        } catch {
+            populateLecturerOptions([]);
+        } finally {
+            syncSnapshot();
+        }
+    };
+
+    const openAttachmentPicker = () => {
+        attachmentsInput?.click();
+    };
+
+    const submitTicket = async (mode) => {
+        if (!form) {
+            return;
+        }
+
+        setFeedback('');
+        submissionModeInput.value = mode;
+
+        if (!String(verifiedStudentIdInput?.value ?? '').trim()) {
+            const message = 'Verify the student record before creating a ticket.';
+            setFeedback(message);
+            showAlert(message);
+            return;
+        }
+
+        if (typeIsUnit() && !String(unitInput?.value ?? '').trim()) {
+            const message = 'Enter a course code before creating a unit dispute.';
+            setFeedback(message);
+            showAlert(message);
+            return;
+        }
+
+        const formData = new FormData(form);
+        if (typeIsUnit()) {
+            formData.delete('assigned_role');
+        } else {
+            formData.delete('unit_code');
+            formData.delete('lecturer_id');
+        }
+
+        setButtonBusyState(mode === 'draft' ? draftBtn : submitBtn, true, mode === 'draft' ? 'Saving...' : 'Creating...');
+
+        try {
+            const response = await apiPost(form.action, formData);
+
+            persistAdminDisputesFlash({
+                toastMessage: response?.message ?? 'Ticket created successfully.',
+                toastTone: 'success',
+                alertMessage: response?.admin_notice ?? '',
+                alertTone: response?.admin_notice_tone ?? 'warning',
+            });
+
+            window.location.assign(response?.next ?? '/portal/admin/disputes');
+        } catch (error) {
+            const message = firstErrorMessage(error, 'Unable to create the ticket.');
+            setFeedback(message);
+            showAlert(message);
+        } finally {
+            setButtonBusyState(mode === 'draft' ? draftBtn : submitBtn, false);
+            if (mode === 'draft') {
+                setButtonBusyState(submitBtn, false);
+            }
+        }
+    };
+
+    studentLookupInput?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        event.preventDefault();
+        verifyStudent();
+    });
+
+    studentLookupInput?.addEventListener('input', () => {
+        if (verifiedStudentIdInput?.value) {
+            clearVerifiedStudent();
+            setFeedback('');
+        }
+    });
+
+    studentVerifyBtn?.addEventListener('click', verifyStudent);
+    ticketTypeSelect?.addEventListener('change', syncTypeSections);
+    lecturerSelect?.addEventListener('change', syncSnapshot);
+    generalRouteSelect?.addEventListener('change', syncSnapshot);
+    prioritySelect?.addEventListener('change', syncSnapshot);
+    departmentSelect?.addEventListener('change', syncSnapshot);
+    notifyStudentToggle?.addEventListener('change', syncSnapshot);
+    notifyAssigneeToggle?.addEventListener('change', syncSnapshot);
+    routeImmediatelyToggle?.addEventListener('change', syncSnapshot);
+    followUpToggle?.addEventListener('change', syncSnapshot);
+
+    unitInput?.addEventListener('input', () => {
+        if (unitLookupTimer) {
+            window.clearTimeout(unitLookupTimer);
+        }
+
+        populateLecturerOptions([]);
+        unitLookupTimer = window.setTimeout(() => {
+            loadUnitSuggestions(String(unitInput.value ?? '').trim());
+        }, 220);
+    });
+
+    unitInput?.addEventListener('change', loadSelectedUnitRouting);
+    unitInput?.addEventListener('blur', loadSelectedUnitRouting);
+
+    attachmentBrowseBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openAttachmentPicker();
+    });
+    attachmentDropzone?.addEventListener('click', openAttachmentPicker);
+    attachmentDropzone?.addEventListener('keydown', (event) => {
+        if (!['Enter', ' '].includes(event.key)) {
+            return;
+        }
+
+        event.preventDefault();
+        openAttachmentPicker();
+    });
+    attachmentDropzone?.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        attachmentDropzone.classList.add('is-dragover');
+    });
+    attachmentDropzone?.addEventListener('dragleave', () => {
+        attachmentDropzone.classList.remove('is-dragover');
+    });
+    attachmentDropzone?.addEventListener('drop', (event) => {
+        event.preventDefault();
+        attachmentDropzone.classList.remove('is-dragover');
+
+        const files = [...(event.dataTransfer?.files ?? [])];
+        if (!files.length || !attachmentsInput) {
+            return;
+        }
+
+        const transfer = new DataTransfer();
+        files.forEach((file) => transfer.items.add(file));
+        attachmentsInput.files = transfer.files;
+        renderAttachmentList(files);
+    });
+    attachmentsInput?.addEventListener('change', () => {
+        renderAttachmentList([...(attachmentsInput.files ?? [])]);
+    });
+
+    draftBtn?.addEventListener('click', async () => {
+        await submitTicket('draft');
+    });
+
+    form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await submitTicket('submit');
+    });
+
+    syncTypeSections();
+    renderAttachmentList([]);
+    syncSnapshot();
 }
 
 export async function initAdminManageTicket() {

@@ -278,6 +278,15 @@ class FrontendController extends Controller
         ]);
     }
 
+    public function adminCreateTicket(): View
+    {
+        $this->ensureRole('admin');
+
+        return view('admin.create-ticket', [
+            'adminCreateTicketMeta' => $this->buildAdminCreateTicketMeta(),
+        ]);
+    }
+
     public function adminManageTicket(int $id): View
     {
         $this->ensureRole('admin');
@@ -363,6 +372,7 @@ class FrontendController extends Controller
 
     private function buildStudentPortalContext(): array
     {
+        /** @var User|null $user */
         $user = Auth::user();
         $user?->loadMissing('department');
 
@@ -420,6 +430,7 @@ class FrontendController extends Controller
 
     private function buildAdminManageTicketContext(Dispute $dispute): array
     {
+        /** @var User|null $currentAdmin */
         $currentAdmin = Auth::user();
         $currentAdmin?->loadMissing('department');
 
@@ -805,6 +816,53 @@ class FrontendController extends Controller
                 })
                 ->values()
                 ->all(),
+        ];
+    }
+
+    private function buildAdminCreateTicketMeta(): array
+    {
+        $departments = Department::query()
+            ->orderBy('name')
+            ->get(['name', 'faculty']);
+
+        return [
+            'departments' => $departments
+                ->map(fn (Department $department) => [
+                    'name' => $department->name,
+                    'faculty' => trim((string) ($department->faculty ?? '')),
+                ])
+                ->values()
+                ->all(),
+            'ticket_types' => [
+                ['value' => 'unit', 'label' => 'Unit Dispute'],
+                ['value' => 'general', 'label' => 'General Dispute'],
+            ],
+            'issue_types' => [
+                'Calculation Error',
+                'Missing Grade',
+                'Late Penalty',
+                'Rubric Question',
+                'General Review Request',
+            ],
+            'priority_options' => ['low', 'medium', 'high'],
+            'general_route_options' => [
+                ['value' => 'exam_officer', 'label' => 'Exam Officer'],
+                ['value' => 'hod', 'label' => 'Head of Department'],
+                ['value' => 'admin', 'label' => 'Admin Review'],
+            ],
+            'academic_terms' => $this->buildAcademicTerms(),
+        ];
+    }
+
+    private function buildAcademicTerms(): array
+    {
+        $year = (int) now('Africa/Nairobi')->format('Y');
+
+        return [
+            "{$year} Semester 1",
+            "{$year} Semester 2",
+            ($year - 1).' Semester 2',
+            ($year - 1).' Semester 1',
         ];
     }
 

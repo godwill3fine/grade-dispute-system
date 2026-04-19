@@ -48,8 +48,8 @@ if (PHP_SAPI === 'cli') {
     }
 }
 
-// Register the Composer autoloader...
-require __DIR__.'/vendor/autoload.php';
+// Register the worktree-aware autoloader...
+require __DIR__.'/bootstrap/worktree_autoload.php';
 
 // Bootstrap Laravel and handle the command...
 /** @var Application $app */
