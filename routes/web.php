@@ -39,6 +39,7 @@ Route::middleware('auth')->prefix('portal')->group(function () {
 
     Route::get('/admin/dashboard', [FrontendController::class, 'adminDashboard'])->name('portal.admin.dashboard');
     Route::get('/admin/disputes', [FrontendController::class, 'adminDisputes'])->name('portal.admin.disputes');
+    Route::get('/admin/disputes/create', [FrontendController::class, 'adminCreateTicket'])->name('portal.admin.disputes.create');
     Route::get('/admin/disputes/{id}', [FrontendController::class, 'adminManageTicket'])->name('portal.admin.disputes.manage');
     Route::get('/admin/users', [FrontendController::class, 'adminUsers'])->name('portal.admin.users');
     Route::get('/admin/users/create', [FrontendController::class, 'adminUserCreate'])->name('portal.admin.users.create');
@@ -93,7 +94,10 @@ Route::middleware(['role:student,lecturer,staff,admin'])->group(function () {
 Route::middleware(['role:admin'])->group(function () {
     Route::get('/admin/dashboard', [DisputeController::class, 'adminDashboard']);
     Route::get('/admin/disputes', [DisputeController::class, 'allDisputes']);
+    Route::post('/admin/disputes', [DisputeController::class, 'adminStoreTicket']);
     Route::post('/admin/disputes/{id}/manage', [DisputeController::class, 'adminUpdateTicket']);
+    Route::get('/admin/students/lookup', [DisputeController::class, 'adminLookupStudent']);
+    Route::get('/admin/units/routing', [DisputeController::class, 'adminUnitRouting']);
     Route::get('/admin/users', [AdminController::class, 'userDirectory']);
     Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
     Route::post('/admin/users/import', [AdminController::class, 'importUsers']);

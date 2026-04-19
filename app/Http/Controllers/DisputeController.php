@@ -31,14 +31,23 @@ class DisputeController extends Controller
         $query = (string) $request->query('q', '');
 
         $units = Unit::query()
+            ->with('department:id,name,faculty')
             ->when($query !== '', function ($builder) use ($query) {
                 $builder->where('unit_code', 'like', "%{$query}%")
                     ->orWhere('unit_name', 'like', "%{$query}%");
             })
+            ->orderBy('unit_code')
             ->limit(30)
-            ->get();
+            ->get(['unit_code', 'unit_name', 'department_id']);
 
-        return response()->json($units);
+        return response()->json(
+            $units->map(fn (Unit $unit) => [
+                'unit_code' => $unit->unit_code,
+                'unit_name' => $unit->unit_name,
+                'department_name' => trim((string) ($unit->department?->name ?? '')),
+                'faculty_name' => trim((string) ($unit->department?->faculty ?? '')),
+            ])->values()
+        );
     }
 
     public function store(Request $request)
@@ -111,7 +120,7 @@ class DisputeController extends Controller
             $assignedRole = $staff->role;
         }
 
-        $dispute = Dispute::create([
+        $dispute = $this->persistDispute([
             'student_id' => $request->student_id,
             'type' => $request->type,
             'unit_code' => $request->unit_code,
@@ -121,16 +130,10 @@ class DisputeController extends Controller
             'title' => $request->title,
             'description' => $request->description,
             'status' => 'pending',
-        ]);
+        ], $actorIdentifier ?? $request->student_id, 'Dispute Submitted', 'Dispute created by student');
 
         if ($request->hasFile('attachment')) {
-            $path = $request->file('attachment')->store('attachments', 'public');
-
-            Attachment::create([
-                'dispute_id' => $dispute->id,
-                'file_path' => $path,
-                'uploaded_by' => $request->student_id,
-            ]);
+            $this->storeDisputeAttachments($dispute, [$request->file('attachment')], (string) $request->student_id);
         }
 
         NotificationService::notify(
@@ -339,6 +342,264 @@ class DisputeController extends Controller
                 Dispute::orderBy('created_at', 'desc')->get()
             )->all()
         );
+    }
+
+    public function adminLookupStudent(Request $request): JsonResponse
+    {
+        $request->validate([
+            'q' => ['required', 'string', 'max:255'],
+        ]);
+
+        $query = trim((string) $request->query('q', ''));
+
+        $student = Student::query()
+            ->leftJoin('users as student_users', function ($join) {
+                $join->on('student_users.identifier', '=', 'students.reg_number')
+                    ->where('student_users.role', '=', 'student');
+            })
+            ->select('students.*', 'student_users.email as user_email', 'student_users.name as user_name')
+            ->where(function ($builder) use ($query) {
+                $builder->where('students.reg_number', 'like', "%{$query}%")
+                    ->orWhere('student_users.email', 'like', "%{$query}%")
+                    ->orWhere('student_users.name', 'like', "%{$query}%")
+                    ->orWhere('students.first_name', 'like', "%{$query}%")
+                    ->orWhere('students.last_name', 'like', "%{$query}%");
+            })
+            ->orderByRaw('CASE WHEN students.reg_number = ? THEN 0 ELSE 1 END', [$query])
+            ->orderBy('students.reg_number')
+            ->first();
+
+        if (! $student) {
+            return response()->json([
+                'error' => 'Student record not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'student_id' => trim((string) $student->reg_number),
+            'name' => trim((string) (($student->user_name ?? null) ?: $student->display_name)),
+            'email' => trim((string) ($student->user_email ?? '')),
+            'course' => trim((string) ($student->course ?? '')),
+            'year_label' => filled($student->year) ? 'Year '.$student->year : 'Not available',
+            'department' => trim((string) ($student->department ?? '')),
+            'faculty' => trim((string) ($student->faculty ?? '')),
+        ]);
+    }
+
+    public function adminUnitRouting(Request $request): JsonResponse
+    {
+        $request->validate([
+            'unit_code' => ['required', 'string', 'exists:units,unit_code'],
+        ]);
+
+        $unitCode = trim((string) $request->query('unit_code', ''));
+
+        $unit = Unit::query()
+            ->with('department:id,name,faculty')
+            ->where('unit_code', $unitCode)
+            ->firstOrFail(['unit_code', 'unit_name', 'department_id']);
+
+        $lecturerOptions = UnitLecturer::query()
+            ->with('lecturer:lecturer_id,first_name,last_name,salutation,department')
+            ->where('unit_code', $unitCode)
+            ->orderBy('course')
+            ->get()
+            ->map(function (UnitLecturer $mapping) {
+                $lecturer = $mapping->lecturer;
+
+                return [
+                    'identifier' => trim((string) $mapping->lecturer_id),
+                    'name' => trim((string) ($lecturer?->formal_name ?: $mapping->lecturer_id)),
+                    'course' => trim((string) ($mapping->course ?? '')),
+                    'department' => trim((string) ($lecturer?->department ?? '')),
+                ];
+            })
+            ->filter(fn (array $option) => $option['identifier'] !== '')
+            ->unique('identifier')
+            ->values()
+            ->all();
+
+        return response()->json([
+            'unit_code' => $unit->unit_code,
+            'unit_name' => $unit->unit_name,
+            'department_name' => trim((string) ($unit->department?->name ?? '')),
+            'faculty_name' => trim((string) ($unit->department?->faculty ?? '')),
+            'lecturer_options' => $lecturerOptions,
+        ]);
+    }
+
+    public function adminStoreTicket(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'student_id' => ['required', 'string', 'exists:students,reg_number'],
+            'type' => ['required', Rule::in(['unit', 'general'])],
+            'unit_code' => ['nullable', 'string', 'exists:units,unit_code'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['required', 'string'],
+            'priority' => ['nullable', Rule::in(['low', 'medium', 'high'])],
+            'lecturer_id' => ['nullable', 'string', 'exists:lecturers,lecturer_id'],
+            'assigned_role' => ['nullable', Rule::in(['exam_officer', 'hod', 'admin'])],
+            'department_name' => ['nullable', 'string', 'max:255'],
+            'academic_term' => ['nullable', 'string', 'max:100'],
+            'issue_type' => ['nullable', 'string', 'max:100'],
+            'route_immediately' => ['nullable', 'boolean'],
+            'notify_student' => ['nullable', 'boolean'],
+            'notify_assignee' => ['nullable', 'boolean'],
+            'admin_follow_up' => ['nullable', 'boolean'],
+            'submission_mode' => ['nullable', Rule::in(['draft', 'submit'])],
+            'attachments' => ['nullable', 'array'],
+            'attachments.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        $performedBy = $this->actorIdentifier($request);
+        if (! is_string($performedBy) || trim($performedBy) === '') {
+            return response()->json(['error' => 'performed_by is required'], 422);
+        }
+
+        $student = Student::query()->findOrFail((string) $validated['student_id']);
+        $type = trim((string) $validated['type']);
+        $unitCode = trim((string) ($validated['unit_code'] ?? ''));
+        $priority = trim((string) ($validated['priority'] ?? 'medium'));
+        $lecturerId = trim((string) ($validated['lecturer_id'] ?? ''));
+        $departmentName = trim((string) (
+            ($validated['department_name'] ?? null)
+            ?: $student->department
+            ?: ''
+        ));
+        $submissionMode = trim((string) ($validated['submission_mode'] ?? 'submit'));
+        $routeImmediately = $submissionMode !== 'draft'
+            && (! $request->exists('route_immediately') || $request->boolean('route_immediately'));
+        $notifyStudent = $submissionMode !== 'draft'
+            && (! $request->exists('notify_student') || $request->boolean('notify_student'));
+        $notifyAssignee = $submissionMode !== 'draft'
+            && (! $request->exists('notify_assignee') || $request->boolean('notify_assignee'));
+        $adminFollowUp = $request->boolean('admin_follow_up');
+
+        if ($type === 'unit' && $unitCode === '') {
+            throw ValidationException::withMessages([
+                'unit_code' => ['Unit code is required for unit disputes.'],
+            ]);
+        }
+
+        $routing = ! $routeImmediately
+            ? $this->adminIntakeRouting($performedBy)
+            : ($type === 'unit'
+                ? $this->resolveAdminUnitCreationRouting($student, $unitCode, $lecturerId)
+                : $this->resolveAdminGeneralCreationRouting(
+                    trim((string) ($validated['assigned_role'] ?? 'admin')),
+                    $departmentName,
+                    $performedBy,
+                ));
+
+        $creationComment = $submissionMode === 'draft'
+            ? 'Ticket draft created by admin on behalf of student'
+            : 'Ticket created by admin on behalf of student';
+
+        $dispute = DB::transaction(function () use (
+            $validated,
+            $student,
+            $type,
+            $unitCode,
+            $priority,
+            $performedBy,
+            $routing,
+            $creationComment,
+            $adminFollowUp,
+            $request
+        ): Dispute {
+            $dispute = $this->persistDispute([
+                'student_id' => $student->reg_number,
+                'type' => $type,
+                'unit_code' => $type === 'unit' ? $unitCode : null,
+                'priority' => $priority !== '' ? $priority : 'medium',
+                'assigned_to' => $routing['assigned_to'],
+                'assigned_role' => $routing['assigned_role'],
+                'assignment_name' => $routing['stage'],
+                'title' => trim((string) $validated['title']),
+                'description' => trim((string) $validated['description']),
+                'status' => $routing['status'],
+                'escalation_reason' => $routing['reason'],
+                'escalated_at' => $routing['status'] === 'escalated' ? now() : null,
+                'escalation_level' => $routing['status'] === 'escalated' ? 1 : 0,
+            ], $performedBy, 'Ticket Created', $creationComment);
+
+            $this->storeDisputeAttachments(
+                $dispute,
+                $request->file('attachments', []),
+                $performedBy,
+            );
+
+            if ($adminFollowUp) {
+                DisputeLog::create([
+                    'dispute_id' => $dispute->id,
+                    'action' => 'Admin Follow-Up Requested',
+                    'old_status' => $dispute->status,
+                    'new_status' => $dispute->status,
+                    'comment' => 'Admin follow-up requested after the first reviewer responds.',
+                    'performed_by' => $performedBy,
+                ]);
+            }
+
+            ActivityLogService::log(
+                $performedBy,
+                'Admin Created Ticket',
+                'dispute',
+                $dispute->id,
+                'Admin created ticket '.$dispute->ticket_number.' for '.$student->reg_number.' and routed it to '.$routing['stage'].'.'
+            );
+
+            return $dispute;
+        });
+
+        if ($notifyStudent) {
+            NotificationService::notify(
+                $dispute->student_id,
+                'Ticket Created',
+                $routeImmediately
+                    ? 'An admin opened ticket '.$dispute->ticket_number.' on your behalf and routed it for review.'
+                    : 'An admin opened ticket '.$dispute->ticket_number.' on your behalf. It is waiting in the admin intake queue.',
+                '/portal/student/disputes/'.$dispute->id,
+                $dispute->id
+            );
+        }
+
+        if ($notifyAssignee && $dispute->assigned_to !== '' && $dispute->assigned_to !== $performedBy) {
+            NotificationService::notify(
+                $dispute->assigned_to,
+                'New Dispute Assigned',
+                'A new dispute has been assigned to you. Ticket: '.$dispute->ticket_number,
+                '/portal/admin/disputes/'.$dispute->id,
+                $dispute->id
+            );
+        }
+
+        $message = match (true) {
+            $submissionMode === 'draft' => 'Draft '.$dispute->ticket_number.' saved successfully.',
+            ! $routeImmediately => 'Ticket '.$dispute->ticket_number.' created and saved to admin intake.',
+            default => 'Ticket '.$dispute->ticket_number.' created successfully.',
+        };
+
+        $adminNotice = match (true) {
+            $submissionMode === 'draft' => 'This draft is waiting in the admin intake queue until you route it from Manage Tickets.',
+            ! $routeImmediately => 'Immediate routing was turned off, so this ticket is waiting in the admin intake queue.',
+            $adminFollowUp => 'Admin follow-up was noted on the ticket timeline for later review.',
+            default => '',
+        };
+
+        return response()->json([
+            'message' => $message,
+            'next' => route('portal.admin.disputes'),
+            'admin_notice' => $adminNotice,
+            'admin_notice_tone' => $adminNotice !== '' ? 'warning' : 'success',
+            'data' => [
+                'id' => $dispute->id,
+                'ticket_number' => $dispute->ticket_number,
+                'status' => $dispute->status,
+                'assigned_to' => $dispute->assigned_to,
+                'assigned_role' => $dispute->assigned_role,
+                'routing_stage' => $dispute->assignment_name,
+            ],
+        ], 201);
     }
 
     public function adminUpdateTicket(Request $request, int $id): JsonResponse
@@ -868,6 +1129,154 @@ class DisputeController extends Controller
             ->first();
 
         return response()->json($data);
+    }
+
+    private function persistDispute(array $attributes, string $performedBy, string $action, string $comment): Dispute
+    {
+        $dispute = new Dispute($attributes);
+        $dispute
+            ->useCreationLogContext($performedBy, $action, $comment)
+            ->save();
+
+        return $dispute;
+    }
+
+    private function storeDisputeAttachments(Dispute $dispute, array $files, string $uploadedBy): void
+    {
+        foreach ($files as $file) {
+            if (! $file) {
+                continue;
+            }
+
+            $path = $file->store('attachments', 'public');
+
+            Attachment::create([
+                'dispute_id' => $dispute->id,
+                'file_path' => $path,
+                'uploaded_by' => $uploadedBy,
+            ]);
+        }
+    }
+
+    private function adminIntakeRouting(string $adminIdentifier): array
+    {
+        return [
+            'assigned_to' => $adminIdentifier,
+            'assigned_role' => 'admin',
+            'status' => 'pending',
+            'stage' => 'Admin Intake',
+            'reason' => 'Created by admin and held in the intake queue.',
+        ];
+    }
+
+    private function resolveAdminUnitCreationRouting(Student $student, string $unitCode, ?string $lecturerId): array
+    {
+        $selectedLecturerId = trim((string) ($lecturerId ?? ''));
+        if ($selectedLecturerId !== '') {
+            return [
+                'assigned_to' => $selectedLecturerId,
+                'assigned_role' => 'lecturer',
+                'status' => 'under_review',
+                'stage' => 'Lecturer Review',
+                'reason' => 'Created by admin and routed directly to lecturer review.',
+            ];
+        }
+
+        $mappings = UnitLecturer::query()
+            ->where('unit_code', $unitCode)
+            ->orderBy('id')
+            ->get();
+
+        if ($mappings->isEmpty()) {
+            throw ValidationException::withMessages([
+                'unit_code' => ['No lecturer is mapped to this unit yet. Select a lecturer or update the unit mapping first.'],
+            ]);
+        }
+
+        $studentCourse = Str::lower(trim((string) ($student->course ?? '')));
+        $courseMatches = $mappings
+            ->filter(function (UnitLecturer $mapping) use ($studentCourse) {
+                if ($studentCourse === '') {
+                    return false;
+                }
+
+                return Str::lower(trim((string) ($mapping->course ?? ''))) === $studentCourse;
+            })
+            ->values();
+
+        $eligibleMappings = $courseMatches->isNotEmpty() ? $courseMatches : $mappings;
+        $lecturerIds = $eligibleMappings
+            ->pluck('lecturer_id')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->values();
+
+        if ($lecturerIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'lecturer_id' => ['No lecturer assignment is available for this unit.'],
+            ]);
+        }
+
+        if ($lecturerIds->count() > 1) {
+            throw ValidationException::withMessages([
+                'lecturer_id' => ['Multiple lecturer mappings match this unit. Select a lecturer before creating the ticket.'],
+            ]);
+        }
+
+        return [
+            'assigned_to' => $lecturerIds->first(),
+            'assigned_role' => 'lecturer',
+            'status' => 'under_review',
+            'stage' => 'Lecturer Review',
+            'reason' => $courseMatches->isNotEmpty()
+                ? 'Created by admin and auto-routed using the student course mapping.'
+                : 'Created by admin and auto-routed using the only available unit mapping.',
+        ];
+    }
+
+    private function resolveAdminGeneralCreationRouting(string $assignedRole, string $departmentName, string $adminIdentifier): array
+    {
+        $normalizedRole = trim($assignedRole) !== '' ? trim($assignedRole) : 'admin';
+
+        if ($normalizedRole === 'admin') {
+            return [
+                'assigned_to' => $adminIdentifier,
+                'assigned_role' => 'admin',
+                'status' => 'escalated',
+                'stage' => 'Dean Review',
+                'reason' => 'Created by admin for direct admin review.',
+            ];
+        }
+
+        $staffMember = Staff::query()
+            ->where('role', $normalizedRole)
+            ->when($departmentName !== '', function ($builder) use ($departmentName) {
+                $builder->where('department', $departmentName);
+            })
+            ->orderBy('staff_id')
+            ->first();
+
+        if (! $staffMember && $departmentName !== '') {
+            $staffMember = Staff::query()
+                ->where('role', $normalizedRole)
+                ->orderBy('staff_id')
+                ->first();
+        }
+
+        if (! $staffMember) {
+            throw ValidationException::withMessages([
+                'assigned_role' => ['No '.$normalizedRole.' reviewer is available for this route.'],
+            ]);
+        }
+
+        return [
+            'assigned_to' => trim((string) $staffMember->staff_id),
+            'assigned_role' => trim((string) $staffMember->role),
+            'status' => 'escalated',
+            'stage' => 'Department Board',
+            'reason' => 'Created by admin and routed to department-board review.',
+        ];
     }
 
     private function actorIdentifier(Request $request): ?string

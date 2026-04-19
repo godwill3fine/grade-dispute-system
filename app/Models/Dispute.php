@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Dispute extends Model
 {
+    protected ?string $creationPerformedBy = null;
+
+    protected ?string $creationLogAction = null;
+
+    protected ?string $creationLogComment = null;
+
     protected $fillable = [
         'ticket_number',
         'student_id',
@@ -59,6 +65,15 @@ class Dispute extends Model
         return $this->hasMany(Notification::class, 'dispute_id');
     }
 
+    public function useCreationLogContext(?string $performedBy, ?string $action = null, ?string $comment = null): static
+    {
+        $this->creationPerformedBy = is_string($performedBy) ? trim($performedBy) : null;
+        $this->creationLogAction = is_string($action) ? trim($action) : null;
+        $this->creationLogComment = is_string($comment) ? trim($comment) : null;
+
+        return $this;
+    }
+
     protected static function boot()
     {
         parent::boot();
@@ -84,11 +99,11 @@ class Dispute extends Model
         static::created(function ($dispute) {
             DisputeLog::create([
                 'dispute_id' => $dispute->id,
-                'action' => 'Dispute Submitted',
+                'action' => $dispute->creationLogAction ?: 'Dispute Submitted',
                 'old_status' => null,
                 'new_status' => $dispute->status,
-                'comment' => 'Dispute created by student',
-                'performed_by' => $dispute->student_id
+                'comment' => $dispute->creationLogComment ?: 'Dispute created by student',
+                'performed_by' => $dispute->creationPerformedBy ?: $dispute->student_id,
             ]);
         });
     }
