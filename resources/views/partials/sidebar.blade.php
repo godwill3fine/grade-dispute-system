@@ -23,12 +23,6 @@
             ['route' => 'portal.admin.activity', 'match' => 'portal.admin.activity', 'label' => 'Recent Activity', 'icon' => 'schedule'],
         ],
     ];
-    $portalTitle = match ($role) {
-        'student' => 'Student Portal',
-        'lecturer', 'staff' => 'Lecturer Portal',
-        'admin' => 'Admin Portal',
-        default => 'Portal',
-    };
     $profileIdentifier = auth()->user()->identifier ?? 'ID unavailable';
 @endphp
 
@@ -36,8 +30,8 @@
     <div class="sidebar-header">
         <div class="logo">
             <span class="material-symbols-outlined">automation</span>
-            <span class="text"><h3>{{ $portalTitle }}</h3></span>
         </div>
+        <span class="text sidebar-header-title"><h3>Grade Dispute System</h3></span>
         <span class="material-symbols-outlined" id="toggle-sidebar">menu</span>
     </div>
 

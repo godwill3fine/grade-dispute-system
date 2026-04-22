@@ -289,6 +289,228 @@
 }
 
 @media (max-width: 768px) {
+    body[data-page="student-tickets"] .page-header,
+    body[data-page="student-disputes"] .page-header,
+    body[data-page="student-notifications"] .page-header {
+        padding: 22px 18px;
+    }
+
+    body[data-page="student-tickets"] .page-header.flex-header,
+    body[data-page="student-disputes"] .page-header.flex-header,
+    body[data-page="student-notifications"] .page-header.flex-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    body[data-page="student-tickets"] .page-header .btn,
+    body[data-page="student-disputes"] .page-header .btn,
+    body[data-page="student-notifications"] .page-header .btn {
+        justify-content: center;
+    }
+
+    body[data-page="student-tickets"] .table-controls,
+    body[data-page="student-disputes"] .table-controls {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    body[data-page="student-tickets"] .search-box,
+    body[data-page="student-tickets"] .status-filter,
+    body[data-page="student-disputes"] .search-box,
+    body[data-page="student-disputes"] .status-filter {
+        width: 100%;
+    }
+
+    body[data-page="student-tickets"] .search-box,
+    body[data-page="student-disputes"] .search-box {
+        padding: 10px 12px;
+    }
+
+    body[data-page="student-tickets"] .tickets-table th,
+    body[data-page="student-disputes"] .tickets-table th {
+        padding: 12px 14px;
+        font-size: 0.68rem;
+    }
+
+    body[data-page="student-tickets"] .tickets-table td,
+    body[data-page="student-disputes"] .tickets-table td {
+        padding: 13px 14px;
+        font-size: 0.82rem;
+    }
+
+    body[data-page="student-tickets"] .table-action-cell .btn,
+    body[data-page="student-disputes"] .table-action-cell .btn {
+        padding: 8px 10px;
+        font-size: 0.78rem;
+    }
+
+    body[data-page="student-dispute-detail"] .detail-card-header {
+        padding: 14px 16px;
+        font-size: 0.95rem;
+    }
+
+    body[data-page="student-dispute-detail"] .detail-card-body {
+        padding: 18px 16px;
+    }
+
+    body[data-page="student-dispute-detail"] .overview-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    body[data-page="student-dispute-detail"] .attachment-link {
+        gap: 10px;
+        padding: 12px 14px;
+        overflow-wrap: anywhere;
+    }
+
+    body[data-page="student-dispute-detail"] .attachment-link span:first-child {
+        min-width: 0;
+    }
+
+    body[data-page="student-dispute-detail"] .timeline-item {
+        gap: 12px;
+    }
+
+    body[data-page="student-dispute-detail"] .timeline-header {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    body[data-page="student-dispute-detail"] .timeline-box {
+        padding: 14px 16px;
+    }
+
+    body[data-page="student-notifications"] .notifications-container {
+        border-radius: var(--radius-md);
+    }
+
+    body[data-page="student-notifications"] .notification-item {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        grid-template-areas:
+            "icon content"
+            ". time";
+        gap: 10px 12px;
+        width: 100%;
+        padding: 16px;
+        text-align: left;
+    }
+
+    body[data-page="student-notifications"] .notification-icon {
+        grid-area: icon;
+        width: 36px;
+        height: 36px;
+        margin-right: 0;
+    }
+
+    body[data-page="student-notifications"] .notification-content {
+        grid-area: content;
+        min-width: 0;
+    }
+
+    body[data-page="student-notifications"] .notification-content h4,
+    body[data-page="student-notifications"] .notification-content p,
+    body[data-page="student-notifications"] .gd-notification-row {
+        overflow-wrap: anywhere;
+    }
+
+    body[data-page="student-notifications"] .notification-time {
+        grid-area: time;
+        margin-left: 0;
+        padding-top: 0;
+        font-size: 0.72rem;
+        white-space: normal;
+    }
+
+    body[data-page="student-notifications"] .gd-notification-row {
+        padding: 16px;
+        font-size: 0.88rem;
+    }
+
+    body[data-page="student-dashboard"] .content {
+        padding-top: 18px;
+    }
+
+    body[data-page="student-dashboard"] .stats-container {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    body[data-page="student-dashboard"] .stat-card {
+        padding: 22px 18px;
+        border-radius: var(--radius-md);
+        text-align: left;
+    }
+
+    body[data-page="student-dashboard"] .stat-card h4 {
+        margin-bottom: 8px;
+        font-size: 0.82rem;
+    }
+
+    body[data-page="student-dashboard"] .stat-card .stat-value {
+        font-size: 2.1rem;
+        line-height: 1.1;
+    }
+
+    body[data-page="student-dashboard"] .dashboard-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    body[data-page="student-dashboard"] .total-disputes {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 0.92rem;
+    }
+
+    body[data-page="student-dashboard"] .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    body[data-page="student-dashboard"] .header-actions .btn {
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 0.82rem;
+    }
+
+    body[data-page="student-dashboard"] .table-controls {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    body[data-page="student-dashboard"] .search-box,
+    body[data-page="student-dashboard"] .status-filter {
+        width: 100%;
+    }
+
+    body[data-page="student-dashboard"] .search-box {
+        padding: 10px 12px;
+    }
+
+    body[data-page="student-dashboard"] .tickets-table th {
+        padding: 12px 14px;
+        font-size: 0.68rem;
+    }
+
+    body[data-page="student-dashboard"] .tickets-table td {
+        padding: 13px 14px;
+        font-size: 0.82rem;
+    }
+
+    body[data-page="student-dashboard"] .table-action-cell .btn {
+        padding: 8px 10px;
+        font-size: 0.78rem;
+    }
+
     .student-profile-page-header .header-actions,
     .student-settings-page-header .header-actions {
         width: 100%;
@@ -315,6 +537,55 @@
 }
 
 @media (max-width: 600px) {
+    body[data-page="student-tickets"] .page-header,
+    body[data-page="student-disputes"] .page-header,
+    body[data-page="student-notifications"] .page-header {
+        padding: 18px 16px;
+    }
+
+    body[data-page="student-tickets"] .table-controls,
+    body[data-page="student-disputes"] .table-controls {
+        padding: 12px;
+    }
+
+    body[data-page="student-notifications"] .notification-item {
+        padding: 14px;
+        gap: 8px 10px;
+    }
+
+    body[data-page="student-notifications"] .notification-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    body[data-page="student-notifications"] .notification-content h4 {
+        font-size: 0.92rem;
+    }
+
+    body[data-page="student-notifications"] .notification-content p {
+        font-size: 0.82rem;
+    }
+
+    body[data-page="student-dashboard"] .content {
+        padding-top: 16px;
+    }
+
+    body[data-page="student-dashboard"] .header-actions {
+        grid-template-columns: 1fr;
+    }
+
+    body[data-page="student-dashboard"] .stat-card {
+        padding: 18px 16px;
+    }
+
+    body[data-page="student-dashboard"] .stat-card .stat-value {
+        font-size: 1.9rem;
+    }
+
+    body[data-page="student-dashboard"] .table-controls {
+        padding: 12px;
+    }
+
     .student-profile-overview,
     .student-settings-overview {
         grid-template-columns: 1fr;

@@ -184,9 +184,10 @@ button {
 
 .sidebar-header {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
     height: 80px;
     padding: 0 20px;
     transition: height 0.3s ease;
@@ -201,21 +202,37 @@ button {
 .logo {
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 38px;
     white-space: nowrap;
     transition: all 0.3s ease;
 }
 
-.logo .text h3,
+.sidebar-header-title h3,
 .menu-title .text h3,
 #profile .text h2,
 #profile .text h3 {
     margin: 0;
 }
 
-.logo .text h3,
+.sidebar-header-title {
+    min-width: 0;
+}
+
+.sidebar-header-title h3,
 .menu-title .text h3 {
     font-size: 1.15rem;
     line-height: 1.2;
+}
+
+.sidebar-header-title h3 {
+    overflow: hidden;
+    color: inherit;
+    font-size: 1rem;
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .wrapper.collapsed .logo {
@@ -226,11 +243,15 @@ button {
 }
 
 .logo span.material-symbols-outlined {
-    margin-right: 15px;
+    margin-right: 0;
 }
 
 .wrapper.collapsed .logo span.material-symbols-outlined {
     margin-right: 0;
+}
+
+.wrapper.collapsed .sidebar-header-title {
+    display: none;
 }
 
 #toggle-sidebar {
@@ -454,11 +475,20 @@ body.dark-theme {
     --color-bg-sidebar: #020617;
     --color-bg-navbar: #020617;
     --color-bg-hover: #1e293b;
+    --color-bg-disabled: #1f2937;
     --color-primary: #ffff;
+    --color-primary-dark: #1d4ed8;
+    --color-primary-light: #60a5fa;
     --color-text-primary: #e5e7eb;
     --color-text-secondary: #94a3b8;
+    --color-text-muted: #9aa8bb;
     --color-text-heading: #f1f5f9;
+    --color-link: #93c5fd;
     --color-border-light: #1f2937;
+    --color-border-divider: #243244;
+    --color-border-input: #334155;
+    --color-border-focus: #60a5fa;
+    --color-border-strong: #475569;
 }
 
 .content {
@@ -1127,6 +1157,10 @@ textarea.form-control {
     font-weight: var(--font-weight-bold);
 }
 
+body.dark-theme .dropdown-header h4 {
+    color: var(--color-text-primary);
+}
+
 .dropdown-header p {
     margin: 0;
     color: var(--color-text-secondary);
@@ -1191,7 +1225,146 @@ textarea.form-control {
     }
 }
 
+@media (max-width: 768px) {
+    .page-header:not(.page-header-plain) {
+        padding: 22px 18px;
+    }
+
+    .page-header.flex-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .page-header.flex-header .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .page-header.flex-header .header-actions .btn {
+        justify-content: center;
+    }
+
+    .table-controls {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .search-box,
+    .status-filter {
+        width: 100%;
+    }
+
+    .search-box {
+        padding: 10px 12px;
+    }
+
+    .tickets-table th {
+        padding: 12px 14px;
+        font-size: 0.68rem;
+    }
+
+    .tickets-table td {
+        padding: 13px 14px;
+        font-size: 0.82rem;
+    }
+
+    .detail-card-header {
+        padding: 14px 16px;
+        font-size: 0.95rem;
+    }
+
+    .detail-card-body {
+        padding: 18px 16px;
+    }
+
+    .overview-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .attachment-link {
+        gap: 10px;
+        padding: 12px 14px;
+        overflow-wrap: anywhere;
+    }
+
+    .notification-item {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        grid-template-areas:
+            "icon content"
+            ". time";
+        gap: 10px 12px;
+        width: 100%;
+        padding: 16px;
+        text-align: left;
+    }
+
+    .notification-icon {
+        grid-area: icon;
+        width: 36px;
+        height: 36px;
+        margin-right: 0;
+    }
+
+    .notification-content {
+        grid-area: content;
+        min-width: 0;
+    }
+
+    .notification-content h4,
+    .notification-content p,
+    .gd-notification-row {
+        overflow-wrap: anywhere;
+    }
+
+    .notification-time {
+        grid-area: time;
+        margin-left: 0;
+        padding-top: 0;
+        font-size: 0.72rem;
+        white-space: normal;
+    }
+
+    .timeline-item {
+        gap: 12px;
+    }
+
+    .timeline-header {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .timeline-box {
+        padding: 14px 16px;
+    }
+}
+
 @media (max-width: 600px) {
+    .page-header:not(.page-header-plain) {
+        padding: 18px 16px;
+    }
+
+    .notification-item {
+        padding: 14px;
+        gap: 8px 10px;
+    }
+
+    .notification-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .notification-content h4 {
+        font-size: 0.92rem;
+    }
+
+    .notification-content p {
+        font-size: 0.82rem;
+    }
+
     .table-footer-pagination {
         flex-direction: column;
         gap: 16px;

@@ -7,6 +7,18 @@ const overlay = document.querySelector(".overlay");
 const DESKTOP_BREAKPOINT = 1100;
 const SIDEBAR_STATE_KEY = "portal-sidebar-collapsed";
 
+function isDesktopViewport() {
+    return window.innerWidth > DESKTOP_BREAKPOINT;
+}
+
+function setMobileSidebarOpen(isOpen) {
+    if (!wrapper) {
+        return;
+    }
+
+    wrapper.classList.toggle("mobile-open", isOpen);
+}
+
 function applyTheme(isDarkMode) {
     document.body.classList.toggle("dark-theme", isDarkMode);
 
@@ -20,7 +32,7 @@ function readSavedTheme() {
 }
 
 function shouldCollapseSidebar() {
-    return window.innerWidth > DESKTOP_BREAKPOINT;
+    return isDesktopViewport();
 }
 
 function readSavedSidebarState() {
@@ -49,6 +61,11 @@ if (themeToggle) {
 
 if (toggleBtn && wrapper) {
     toggleBtn.addEventListener("click", () => {
+        if (!isDesktopViewport()) {
+            setMobileSidebarOpen(!wrapper.classList.contains("mobile-open"));
+            return;
+        }
+
         const isCollapsed = !wrapper.classList.contains("collapsed");
 
         localStorage.setItem(SIDEBAR_STATE_KEY, String(isCollapsed));
@@ -58,13 +75,13 @@ if (toggleBtn && wrapper) {
 
 if (mobileMenu && wrapper) {
     mobileMenu.addEventListener("click", () => {
-        wrapper.classList.toggle("mobile-open");
+        setMobileSidebarOpen(!wrapper.classList.contains("mobile-open"));
     });
 }
 
 if (overlay && wrapper) {
     overlay.addEventListener("click", () => {
-        wrapper.classList.remove("mobile-open");
+        setMobileSidebarOpen(false);
     });
 }
 
@@ -118,4 +135,8 @@ if (settingsDropdownWrappers.length > 0) {
 
 window.addEventListener("resize", () => {
     applySidebarState(readSavedSidebarState());
+
+    if (isDesktopViewport()) {
+        setMobileSidebarOpen(false);
+    }
 });

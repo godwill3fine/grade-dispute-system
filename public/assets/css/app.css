@@ -398,6 +398,50 @@ summary {
     color: var(--color-text-secondary);
 }
 
+body.dark-theme .dropdown-menu {
+    background: var(--color-bg-card);
+    border-color: var(--color-border-divider);
+    color: var(--color-text-primary);
+}
+
+body.dark-theme .dropdown-item,
+body.dark-theme .list-group-item,
+body.dark-theme .list-group-item-action {
+    background: transparent;
+    border-color: var(--color-border-divider);
+    color: var(--color-text-primary);
+}
+
+body.dark-theme .dropdown-item:hover,
+body.dark-theme .dropdown-item:focus,
+body.dark-theme .list-group-item-action:hover,
+body.dark-theme .list-group-item-action:focus {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+body.dark-theme .dropdown-divider {
+    border-top-color: var(--color-border-divider);
+}
+
+body.dark-theme .text-muted,
+body.dark-theme .text-body-secondary,
+body.dark-theme .text-secondary {
+    color: var(--color-text-secondary) !important;
+}
+
+body.dark-theme .text-dark,
+body.dark-theme .text-black,
+body.dark-theme .text-body {
+    color: var(--color-text-primary) !important;
+}
+
+body.dark-theme .gd-notification-menu,
+body.dark-theme .gd-notification-item strong,
+body.dark-theme .gd-notification-item .small:not(.text-muted) {
+    color: var(--color-text-primary);
+}
+
 .footer p {
     margin: 0;
 }
@@ -446,6 +490,119 @@ summary {
 }
 
 @media (max-width: 768px) {
+    body[data-user-role]:not([data-user-role=""]) .sidebar {
+        left: -280px;
+        width: min(236px, calc(100vw - 76px));
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .wrapper.mobile-open .sidebar {
+        left: 0;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .sidebar-header {
+        grid-template-columns: 30px minmax(0, 1fr) 30px;
+        height: 64px;
+        padding: 0 14px;
+        gap: 10px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .logo span.material-symbols-outlined {
+        font-size: 20px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .logo {
+        width: 30px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .sidebar-header-title h3,
+    body[data-user-role]:not([data-user-role=""]) .menu-title .text h3 {
+        font-size: 0.84rem;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #toggle-sidebar {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        font-size: 18px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu {
+        gap: 4px;
+        padding-top: 6px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu-title {
+        height: 24px;
+        padding-left: 48px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu-title .text h3 {
+        color: var(--color-text-muted);
+        font-size: 0.7rem;
+        font-weight: var(--font-weight-bold);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu li {
+        margin: 0 8px;
+        padding: 9px 12px;
+        border-radius: 10px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu-link {
+        gap: 10px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu li span.material-symbols-outlined {
+        min-width: 18px;
+        font-size: 19px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu li .text {
+        overflow: hidden;
+        color: inherit;
+        font-size: 0.8rem;
+        font-weight: var(--font-weight-medium);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #profile {
+        min-height: auto;
+        margin: auto 8px 8px;
+        padding: 12px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .profile-info {
+        gap: 8px;
+        min-width: 0;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #profile .profile-info > .material-symbols-outlined,
+    body[data-user-role]:not([data-user-role=""]) .logout {
+        font-size: 20px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #profile .text {
+        min-width: 0;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #profile .text h2,
+    body[data-user-role]:not([data-user-role=""]) #profile .text h3 {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #profile .text h2 {
+        font-size: 0.8rem;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #profile .text h3 {
+        font-size: 0.68rem;
+    }
+
     .navbar {
         padding: 0 20px;
     }
@@ -474,5 +631,195 @@ summary {
 
     .header-actions {
         flex-wrap: wrap;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .navbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 12px 10px;
+        height: auto;
+        padding: 14px 16px 16px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .navbar-left {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "menu title"
+            "greet greet";
+        align-items: center;
+        gap: 14px 12px;
+        min-width: 0;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .mobile-menu {
+        grid-area: menu;
+        width: 32px;
+        height: 32px;
+        margin-right: 0;
+        border-radius: 10px;
+        font-size: 18px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .page-title {
+        display: flex;
+        align-items: center;
+        grid-area: title;
+        min-width: 0;
+        min-height: 38px;
+        color: var(--color-primary);
+        font-size: 0.82rem;
+        font-weight: var(--font-weight-semibold);
+        letter-spacing: 0.02em;
+        line-height: 1.1;
+        text-transform: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .greeting {
+        grid-area: greet;
+        min-width: 0;
+        font-size: 1.05rem;
+        line-height: 1.2;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .navbar-right {
+        justify-self: end;
+        align-self: start;
+        min-height: 38px;
+        align-items: center;
+        gap: 8px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .icon-button {
+        width: 38px;
+        height: 38px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .icon-button .material-symbols-outlined,
+    body[data-user-role]:not([data-user-role=""]) .navbar-right .material-symbols-outlined {
+        font-size: 20px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .notification-badge {
+        min-width: 18px;
+        padding: 2px 5px;
+        font-size: 0.64rem;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .gd-notification-menu {
+        width: min(280px, calc(100vw - 28px));
+        max-width: calc(100vw - 28px);
+        margin-top: 10px !important;
+        right: 0;
+        left: auto;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .gd-notification-menu-header,
+    body[data-user-role]:not([data-user-role=""]) .gd-notification-item,
+    body[data-user-role]:not([data-user-role=""]) .gd-notification-empty {
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    body[data-user-role]:not([data-user-role=""]) .sidebar {
+        left: -250px;
+        width: min(220px, calc(100vw - 64px));
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .wrapper.mobile-open .sidebar {
+        left: 0;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .sidebar-header {
+        grid-template-columns: 28px minmax(0, 1fr) 28px;
+        height: 58px;
+        padding: 0 12px;
+        gap: 8px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .logo span.material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .logo {
+        width: 28px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .sidebar-header-title h3,
+    body[data-user-role]:not([data-user-role=""]) .menu-title .text h3 {
+        font-size: 0.76rem;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) #toggle-sidebar {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu li {
+        padding: 8px 10px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu li span.material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .menu li .text {
+        font-size: 0.76rem;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .navbar {
+        gap: 10px 8px;
+        padding: 12px 14px 14px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .navbar-left {
+        gap: 12px 10px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .mobile-menu {
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .icon-button {
+        width: 34px;
+        height: 34px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .page-title {
+        font-size: 0.76rem;
+        min-height: 34px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .greeting {
+        font-size: 0.95rem;
+        margin-top: 2px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .navbar-right {
+        min-height: 34px;
+        gap: 6px;
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .gd-notification-menu {
+        width: min(248px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+    }
+
+    body[data-user-role]:not([data-user-role=""]) .icon-button .material-symbols-outlined,
+    body[data-user-role]:not([data-user-role=""]) .navbar-right .material-symbols-outlined {
+        font-size: 18px;
     }
 }
