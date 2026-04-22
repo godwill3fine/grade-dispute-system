@@ -13,6 +13,12 @@
         ? $dashboardHeadline
         : $pageHeadline;
     $role = auth()->user()->role ?? '';
+    $portalTitle = match ($role) {
+        'student' => 'Student Portal',
+        'lecturer', 'staff' => 'Lecturer Portal',
+        'admin' => 'Admin Portal',
+        default => 'User Portal',
+    };
     $settingsRole = in_array($role, ['lecturer', 'staff'], true) ? 'lecturer' : $role;
     $portalUserMeta = is_array($portalUserMeta ?? null) ? $portalUserMeta : [];
     $settingsMenus = [
@@ -42,7 +48,7 @@
     <div class="navbar-left">
         <span class="material-symbols-outlined mobile-menu" id="mobile-menu">menu</span>
         <h2 class="greeting">{{ $headline }}</h2>
-        <h2 class="page-title">Grade Dispute Portal</h2>
+        <h2 class="page-title">{{ $portalTitle }}</h2>
     </div>
 
     <div class="navbar-right">
