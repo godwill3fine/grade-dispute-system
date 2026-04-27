@@ -447,9 +447,13 @@ class FrontendController extends Controller
         $studentId = trim((string) ($dispute->student_id ?? ''));
         $assignedTo = trim((string) ($dispute->assigned_to ?? ''));
         $unitCode = trim((string) ($dispute->unit_code ?? ''));
-
-        $mappedLecturerIds = UnitLecturer::query()
+        $mappedUnitLecturers = UnitLecturer::query()
             ->where('unit_code', $unitCode)
+            ->orderBy('course')
+            ->orderBy('id')
+            ->get(['lecturer_id', 'course']);
+
+        $mappedLecturerIds = $mappedUnitLecturers
             ->pluck('lecturer_id')
             ->filter(fn ($value) => is_string($value) && trim($value) !== '')
             ->map(fn ($value) => trim((string) $value))
@@ -493,11 +497,19 @@ class FrontendController extends Controller
             ->orderBy('lecturer_id')
             ->get()
             ->keyBy('lecturer_id');
+        $studentCourseCode = trim((string) data_get($students->get($studentId), 'course', ''));
+        $courseMatchedLecturerIds = $mappedUnitLecturers
+            ->filter(fn (UnitLecturer $mapping) => $this->normalizeCourseCode($mapping->course) === $this->normalizeCourseCode($studentCourseCode))
+            ->pluck('lecturer_id')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->values();
 
         $studentInfo = $this->resolveDisputeActorInfo($studentId, $users, $students, $lecturers, $staff);
         $assignedInfo = $this->resolveDisputeActorInfo($assignedTo, $users, $students, $lecturers, $staff);
         $courseLecturerInfo = $this->resolveDisputeActorInfo(
-            trim((string) ($mappedLecturerIds->first() ?? '')),
+            trim((string) ($courseMatchedLecturerIds->first() ?? $mappedLecturerIds->first() ?? '')),
             $users,
             $students,
             $lecturers,
@@ -653,6 +665,7 @@ class FrontendController extends Controller
         $lecturerOptions = $lecturers
             ->map(function (Lecturer $lecturer) use (
                 $departmentName,
+                $courseMatchedLecturerIds,
                 $lecturers,
                 $mappedLecturerIds,
                 $selectedLecturerId,
@@ -671,6 +684,10 @@ class FrontendController extends Controller
                 $flags = [];
                 if (($info['identifier'] ?? '') === $selectedLecturerId) {
                     $flags[] = 'Current';
+                }
+
+                if ($courseMatchedLecturerIds->contains((string) $lecturer->lecturer_id)) {
+                    $flags[] = 'Course Match';
                 }
 
                 if ($mappedLecturerIds->contains((string) $lecturer->lecturer_id)) {
@@ -703,11 +720,12 @@ class FrontendController extends Controller
                     'label' => $baseLabel,
                     'sort_bucket' => match (true) {
                         trim((string) $lecturer->lecturer_id) === $selectedLecturerId => 0,
-                        $mappedLecturerIds->contains((string) $lecturer->lecturer_id) => 1,
+                        $courseMatchedLecturerIds->contains((string) $lecturer->lecturer_id) => 1,
+                        $mappedLecturerIds->contains((string) $lecturer->lecturer_id) => 2,
                         $departmentName !== ''
                             && $lecturerDepartment !== ''
-                            && Str::lower($lecturerDepartment) === Str::lower($departmentName) => 2,
-                        default => 3,
+                            && Str::lower($lecturerDepartment) === Str::lower($departmentName) => 3,
+                        default => 4,
                     },
                 ];
             })
@@ -838,6 +856,106 @@ class FrontendController extends Controller
             $internalNotes .= PHP_EOL.PHP_EOL.'Attachments on file: '.$attachments->count().'.';
         }
 
+        $studentCourseLabel = $studentCourseCode !== '' ? $studentCourseCode : 'Not assigned';
+        $studentYearValue = data_get($students->get($studentId), 'year');
+        $studentYearLabel = filled($studentYearValue) ? 'Year '.$studentYearValue : 'Not available';
+        $unitLabel = $unitCode !== '' && $unitName !== ''
+            ? $unitCode.' - '.$unitName
+            : ($unitCode !== '' ? $unitCode : 'General Appeal');
+        $assignedReviewerLabel = ($reviewerInfo['name'] ?? '') !== ''
+            ? $reviewerInfo['name'].(($reviewerInfo['identifier'] ?? '') !== '' ? ' ('.$reviewerInfo['identifier'].')' : '')
+            : 'Not assigned';
+        $currentOwnerLabel = ($assignedInfo['name'] ?? '') !== ''
+            ? $assignedInfo['name'].(($assignedInfo['identifier'] ?? '') !== '' ? ' ('.$assignedInfo['identifier'].')' : '')
+            : (($caseOwnerInfo['name'] ?? '') !== ''
+                ? $caseOwnerInfo['name'].(($caseOwnerInfo['identifier'] ?? '') !== '' ? ' ('.$caseOwnerInfo['identifier'].')' : '')
+                : 'Not assigned');
+        $routingBasisLabel = match (true) {
+            Str::lower(trim((string) ($dispute->type ?? ''))) !== 'unit' => 'Manual routing for a general academic dispute.',
+            $unitCode === '' => 'Unit dispute without a unit code on file.',
+            $studentCourseCode === '' => 'Unit dispute without a student course on file.',
+            $courseMatchedLecturerIds->isNotEmpty() => 'Matched by unit '.$unitCode.' and student course '.$studentCourseCode.'.',
+            $mappedLecturerIds->isNotEmpty() => 'Unit '.$unitCode.' has lecturer mappings, but none match student course '.$studentCourseCode.'.',
+            default => 'No lecturer mapping is currently configured for unit '.$unitCode.'.',
+        };
+        $routingNarrative = match (true) {
+            Str::lower(trim((string) ($dispute->type ?? ''))) !== 'unit' => 'This case is being handled as a general academic dispute and can be routed manually by the administration team.',
+            $unitCode === '' => 'This case was submitted as a unit dispute, but the disputed unit code is missing from the ticket record.',
+            $studentCourseCode === '' => 'This case cannot show course-aware lecturer matching because the student course is not recorded on the ticket profile.',
+            $courseMatchedLecturerIds->isNotEmpty() => 'The system matched '.$unitCode.' for course '.$studentCourseCode.' and identified '.$assignedReviewerLabel.' as the lecturer linked to that teaching assignment.',
+            $mappedLecturerIds->isNotEmpty() => 'The disputed unit has lecturer mappings on file, but none of them match the student course '.$studentCourseCode.', so the case requires manual review.',
+            default => 'No lecturer mapping exists for this unit, so the case currently depends on manual routing by the administration team.',
+        };
+        $caseOverviewRows = [
+            ['label' => 'Ticket Number', 'value' => trim((string) ($dispute->ticket_number ?? 'DSP-'.$dispute->id))],
+            ['label' => 'Case Type', 'value' => $issueType],
+            ['label' => 'Current Status', 'value' => $statusLabel],
+            ['label' => 'Priority', 'value' => $priorityLabel],
+            ['label' => 'Review Stage', 'value' => $currentStage],
+            ['label' => 'Submitted On', 'value' => $this->formatPortalTimestamp($dispute->created_at)],
+            ['label' => 'Time Open', 'value' => $timeOpenLabel],
+            ['label' => 'Resolution SLA', 'value' => $slaLabel],
+        ];
+        $studentProfileRows = [
+            ['label' => 'Student Name', 'value' => ($studentInfo['name'] ?? '') !== '' ? $studentInfo['name'] : 'Student'],
+            ['label' => 'Registration Number', 'value' => $studentId !== '' ? $studentId : 'Not available'],
+            ['label' => 'Course', 'value' => $studentCourseLabel],
+            ['label' => 'Year of Study', 'value' => $studentYearLabel],
+            ['label' => 'Department', 'value' => $departmentName !== '' ? $departmentName : 'Not assigned'],
+            ['label' => 'Faculty', 'value' => $facultyName !== '' ? $facultyName : 'Not assigned'],
+        ];
+        $academicContextRows = [
+            ['label' => 'Disputed Unit', 'value' => $unitLabel],
+            ['label' => 'Assessment Workflow', 'value' => match (Str::lower(trim((string) ($dispute->type ?? '')))) {
+                'unit' => 'Unit Assessment Review',
+                'general' => 'General Academic Appeal',
+                default => 'Grade Review Workflow',
+            }],
+            ['label' => 'Assigned Lecturer', 'value' => $assignedReviewerLabel],
+            ['label' => 'Current Case Owner', 'value' => $currentOwnerLabel],
+            ['label' => 'Escalation Trigger', 'value' => $escalationTrigger],
+            ['label' => 'Last Activity', 'value' => $lastUpdateLabel],
+        ];
+        $routingAuditRows = [
+            ['label' => 'Routing Basis', 'value' => $routingBasisLabel],
+            ['label' => 'Current Assignment Stage', 'value' => $currentStage],
+            ['label' => 'Assigned Role', 'value' => ($assignedInfo['role_label'] ?? '') !== '' ? $assignedInfo['role_label'] : 'Not assigned'],
+            ['label' => 'Escalation Level', 'value' => (int) ($dispute->escalation_level ?? 0) > 0 ? 'Level '.(int) $dispute->escalation_level : 'Base workflow'],
+            ['label' => 'Last Updated', 'value' => $this->formatPortalTimestamp($dispute->updated_at ?? $dispute->created_at)],
+            ['label' => 'Prepared By', 'value' => ($currentAdminInfo['name'] ?? '') !== '' ? $currentAdminInfo['name'] : (($currentAdmin?->name ?? '') !== '' ? $currentAdmin->name : 'Administration')],
+        ];
+        $printPeople = collect($people)
+            ->map(fn (array $person): array => [
+                'name' => trim((string) ($person['name'] ?? 'Unknown User')),
+                'role_label' => trim((string) ($person['role_label'] ?? 'USER')),
+                'meta' => trim((string) ($person['meta'] ?? '')),
+                'secondary_meta' => trim((string) ($person['secondary_meta'] ?? '')),
+            ])
+            ->values()
+            ->all();
+        $printAssignmentSnapshot = $mappedUnitLecturers
+            ->map(function (UnitLecturer $mapping) use ($courseMatchedLecturerIds, $lecturers, $staff, $studentCourseCode, $students, $users): array {
+                $lecturerInfo = $this->resolveDisputeActorInfo(
+                    trim((string) ($mapping->lecturer_id ?? '')),
+                    $users,
+                    $students,
+                    $lecturers,
+                    $staff,
+                );
+
+                $courseCode = $this->normalizeCourseCode($mapping->course);
+
+                return [
+                    'course' => $courseCode !== '' ? $courseCode : 'Not assigned',
+                    'lecturer_name' => ($lecturerInfo['name'] ?? '') !== '' ? $lecturerInfo['name'] : trim((string) ($mapping->lecturer_id ?? 'Unknown lecturer')),
+                    'lecturer_id' => trim((string) ($mapping->lecturer_id ?? '')),
+                    'is_student_course' => $courseCode !== '' && $courseCode === $this->normalizeCourseCode($studentCourseCode),
+                    'is_course_match' => $courseMatchedLecturerIds->contains(trim((string) ($mapping->lecturer_id ?? ''))),
+                ];
+            })
+            ->values()
+            ->all();
+
         return [
             'id' => $dispute->id,
             'ticket_number' => trim((string) ($dispute->ticket_number ?? 'DSP-'.$dispute->id)),
@@ -867,6 +985,8 @@ class FrontendController extends Controller
             'submitted_at' => $this->formatPortalTimestamp($dispute->created_at),
             'escalation_trigger' => $escalationTrigger,
             'course_label' => $courseLabel,
+            'student_course_label' => $studentCourseLabel,
+            'unit_label' => $unitLabel,
             'department_name' => $departmentName !== '' ? $departmentName : 'Not assigned',
             'faculty_name' => $facultyName !== '' ? $facultyName : 'Not assigned',
             'assessment_label' => match (Str::lower(trim((string) ($dispute->type ?? '')))) {
@@ -879,7 +999,10 @@ class FrontendController extends Controller
             'selected_routing' => $selectedRouting,
             'selected_lecturer' => $selectedLecturerId,
             'reviewer_name' => ($reviewerInfo['name'] ?? '') !== '' ? $reviewerInfo['name'] : 'Not assigned',
+            'current_owner_name' => $currentOwnerLabel,
             'student_name' => ($studentInfo['name'] ?? '') !== '' ? $studentInfo['name'] : 'Student',
+            'attachment_count' => $attachments->count(),
+            'activity_count' => $timeline->count(),
             'header_badges' => [
                 ['label' => $statusLabel, 'class' => 'badge-dark-solid'],
                 ['label' => $priorityLabel.' Priority', 'class' => 'badge-outline-gray'],
@@ -894,11 +1017,24 @@ class FrontendController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'lecturer_help_text' => 'Any lecturer can be selected here. Course-mapped reviewers are listed first for convenience.',
+            'lecturer_help_text' => 'Any lecturer can be selected here. Reviewers mapped to this student course are listed first for convenience.',
             'routing_help_text' => 'This chooses the next owner of the ticket. Lecturer routes use the selector above, while HOD and Exam Officer routes send the ticket directly to those staff queues.',
             'internal_notes' => $internalNotes,
             'people' => array_slice($people, 0, 3),
             'timeline' => $timeline->all(),
+            'print_case_summary' => $summaryCopy,
+            'print_case_description' => $descriptionText !== '' ? $descriptionText : 'No detailed dispute statement was provided on the ticket.',
+            'print_case_overview_rows' => $caseOverviewRows,
+            'print_student_profile_rows' => $studentProfileRows,
+            'print_academic_context_rows' => $academicContextRows,
+            'print_routing_audit_rows' => $routingAuditRows,
+            'print_routing_narrative' => $routingNarrative,
+            'print_people' => $printPeople,
+            'print_assignment_snapshot' => $printAssignmentSnapshot,
+            'print_generated_by_name' => ($currentAdminInfo['name'] ?? '') !== '' ? $currentAdminInfo['name'] : (($currentAdmin?->name ?? '') !== '' ? $currentAdmin->name : 'Administration'),
+            'print_generated_by_role' => ($currentAdminInfo['role_label'] ?? '') !== '' ? $currentAdminInfo['role_label'] : 'ADMIN',
+            'print_generated_by_department' => ($currentAdminInfo['department'] ?? '') !== '' ? $currentAdminInfo['department'] : 'Administration',
+            'print_certification_statement' => 'I certify that this case file reflects the dispute record, routing state, and audit notes available in the Grade Dispute System at the time of printing.',
             'attachments' => $attachments
                 ->map(function (Attachment $attachment) use ($users, $students, $lecturers, $staff) {
                     $uploader = $this->resolveDisputeActorInfo(
@@ -1073,6 +1209,30 @@ class FrontendController extends Controller
         $staffRole = $role === 'staff' ? trim((string) data_get($profile, 'role', '')) : '';
         $year = filled(data_get($profile, 'year')) ? (string) data_get($profile, 'year') : '';
         $officeLocation = trim((string) ($user->office_location ?? ''));
+        $teachingAssignments = $role === 'lecturer'
+            ? UnitLecturer::query()
+                ->with('unit:unit_code,unit_name')
+                ->where('lecturer_id', $user->identifier)
+                ->orderBy('unit_code')
+                ->orderBy('course')
+                ->get()
+            : collect();
+        $teachingAssignmentLines = $teachingAssignments
+            ->map(fn (UnitLecturer $assignment) => $this->formatTeachingAssignmentLine($assignment->unit_code, $assignment->course))
+            ->values()
+            ->all();
+        $teachingAssignmentLabels = $teachingAssignments
+            ->map(function (UnitLecturer $assignment) {
+                $unitCode = trim((string) $assignment->unit_code);
+                $courseCode = trim((string) $assignment->course);
+                $unitName = trim((string) ($assignment->unit?->unit_name ?? ''));
+
+                return $unitName !== ''
+                    ? $unitCode.' | '.$courseCode.' - '.$unitName
+                    : $unitCode.' | '.$courseCode;
+            })
+            ->values()
+            ->all();
 
         return [
             'name' => $this->adminUserDisplayName($user, $profile),
@@ -1095,7 +1255,7 @@ class FrontendController extends Controller
             'office_location' => $officeLocation,
             'responsibility' => match ($role) {
                 'student' => $course !== '' ? 'Course '.$course.' dispute submissions' : 'Student dispute submissions',
-                'lecturer' => 'Assessment review and ticket responses',
+                'lecturer' => 'Assessment review and ticket responses for mapped teaching assignments',
                 'staff' => match ($staffRole) {
                     'hod' => 'Department-level escalations and lecturer-side review controls',
                     'exam_officer' => 'Examination review escalations and lecturer-side review controls',
@@ -1104,6 +1264,12 @@ class FrontendController extends Controller
                 'admin' => 'User, settings, and escalation management',
                 default => 'Portal access management',
             },
+            'teaching_assignments' => implode(PHP_EOL, $teachingAssignmentLines),
+            'teaching_assignment_count' => count($teachingAssignmentLines),
+            'teaching_assignment_labels' => $teachingAssignmentLabels,
+            'teaching_assignments_summary' => $teachingAssignmentLabels !== []
+                ? implode(', ', $teachingAssignmentLabels)
+                : 'Not assigned',
             'require_password_reset' => (bool) $user->require_password_reset,
             'manual_approval_required' => (bool) $user->manual_approval_required,
             'welcome_email_sent_at' => $this->formatPortalTimestamp($user->welcome_email_sent_at, 'Not sent yet'),
@@ -1215,6 +1381,16 @@ class FrontendController extends Controller
             'pending', 'pending invite' => 'pending invite',
             default => 'active',
         };
+    }
+
+    private function formatTeachingAssignmentLine(?string $unitCode, ?string $course): string
+    {
+        return Str::upper(trim((string) $unitCode)).' | '.$this->normalizeCourseCode($course);
+    }
+
+    private function normalizeCourseCode(?string $course): string
+    {
+        return Str::upper(trim((string) $course));
     }
 
     private function resolveDisputeActorInfo(

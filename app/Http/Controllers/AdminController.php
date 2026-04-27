@@ -13,6 +13,8 @@ use App\Models\Notification;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\Student;
+use App\Models\Unit;
+use App\Models\UnitLecturer;
 use App\Models\User;
 use App\Services\ActivityLogService;
 use Illuminate\Http\JsonResponse;
@@ -125,6 +127,7 @@ class AdminController extends Controller
             'salutation' => ['nullable', 'string', 'max:50'],
             'status' => ['nullable', 'string'],
             'office_location' => ['nullable', 'string', 'max:255'],
+            'teaching_assignments' => ['nullable', 'string'],
             'send_welcome_email' => ['nullable', 'boolean'],
             'require_password_reset' => ['nullable', 'boolean'],
             'manual_approval_required' => ['nullable', 'boolean'],
@@ -141,6 +144,7 @@ class AdminController extends Controller
         $salutation = trim((string) $request->input('salutation', ''));
         $staffRole = $this->normalizeStaffRole((string) $request->input('staff_role', ''), $role);
         $officeLocation = trim((string) $request->input('office_location', ''));
+        $teachingAssignments = (string) $request->input('teaching_assignments', '');
         $selectedStatus = $this->normalizeAccountStatus((string) $request->input('status', 'active'));
         $sendWelcomeEmail = $request->boolean('send_welcome_email');
         $requirePasswordReset = $request->boolean('require_password_reset');
@@ -188,6 +192,7 @@ class AdminController extends Controller
             $manualApprovalRequired,
             $roleIds,
             $temporaryPassword,
+            $teachingAssignments,
             $request
         ): User {
             if ($role === 'student') {
@@ -212,6 +217,8 @@ class AdminController extends Controller
                         'department' => $departmentName,
                     ]
                 );
+
+                $this->syncLecturerTeachingAssignments($identifier, $teachingAssignments);
             } else {
                 Staff::updateOrCreate(
                     ['staff_id' => $identifier],
@@ -319,6 +326,7 @@ class AdminController extends Controller
             'salutation' => ['nullable', 'string', 'max:50'],
             'status' => ['required', 'string'],
             'office_location' => ['nullable', 'string', 'max:255'],
+            'teaching_assignments' => ['nullable', 'string'],
             'send_account_email' => ['nullable', 'boolean'],
             'require_password_reset' => ['nullable', 'boolean'],
             'manual_approval_required' => ['nullable', 'boolean'],
@@ -335,6 +343,7 @@ class AdminController extends Controller
         $salutation = trim((string) $request->input('salutation', ''));
         $staffRole = $this->normalizeStaffRole((string) $request->input('staff_role', ''), $role);
         $officeLocation = trim((string) $request->input('office_location', ''));
+        $teachingAssignments = (string) $request->input('teaching_assignments', '');
         $selectedStatus = $this->normalizeAccountStatus((string) $request->input('status', 'active'));
         $sendAccountEmail = $request->boolean('send_account_email');
         $requirePasswordReset = $request->boolean('require_password_reset');
@@ -387,7 +396,8 @@ class AdminController extends Controller
             $officeLocation,
             $requirePasswordReset,
             $manualApprovalRequired,
-            $roleIds
+            $roleIds,
+            $teachingAssignments
         ): void {
             $this->syncUserProfileForRole(
                 identifier: $user->identifier,
@@ -401,6 +411,10 @@ class AdminController extends Controller
                 salutation: $salutation,
                 staffRole: $staffRole,
             );
+
+            if ($role === 'lecturer') {
+                $this->syncLecturerTeachingAssignments($user->identifier, $teachingAssignments);
+            }
 
             $this->removeStaleProfiles($user->identifier, $role);
 
@@ -1231,6 +1245,120 @@ class AdminController extends Controller
         if (! in_array($keepRole, ['staff', 'admin'], true)) {
             Staff::query()->where('staff_id', $identifier)->delete();
         }
+    }
+
+    private function syncLecturerTeachingAssignments(string $lecturerId, string $rawAssignments): void
+    {
+        $assignments = $this->parseTeachingAssignments($rawAssignments);
+        $unitCodes = $assignments
+            ->pluck('unit_code')
+            ->unique()
+            ->values();
+
+        if ($unitCodes->isNotEmpty()) {
+            $existingUnitCodes = Unit::query()
+                ->whereIn('unit_code', $unitCodes)
+                ->pluck('unit_code')
+                ->map(fn ($value) => Str::upper(trim((string) $value)))
+                ->unique()
+                ->values();
+            $missingUnitCodes = $unitCodes
+                ->diff($existingUnitCodes)
+                ->values();
+
+            if ($missingUnitCodes->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'teaching_assignments' => ['Unknown unit code(s): '.$missingUnitCodes->implode(', ').'.'],
+                ]);
+            }
+        }
+
+        $existingMappings = UnitLecturer::query()
+            ->where('lecturer_id', '!=', $lecturerId)
+            ->whereIn('unit_code', $unitCodes)
+            ->get(['unit_code', 'course', 'lecturer_id']);
+
+        $conflictingAssignments = $assignments
+            ->map(function (array $assignment) use ($existingMappings) {
+                $conflict = $existingMappings->first(function (UnitLecturer $mapping) use ($assignment) {
+                    return Str::upper(trim((string) $mapping->unit_code)) === $assignment['unit_code']
+                        && Str::upper(trim((string) $mapping->course)) === $assignment['course'];
+                });
+
+                if (! $conflict) {
+                    return null;
+                }
+
+                return $assignment['unit_code'].' | '.$assignment['course'].' is already assigned to '.$conflict->lecturer_id.'.';
+            })
+            ->filter()
+            ->values();
+
+        if ($conflictingAssignments->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'teaching_assignments' => $conflictingAssignments->all(),
+            ]);
+        }
+
+        UnitLecturer::query()
+            ->where('lecturer_id', $lecturerId)
+            ->delete();
+
+        if ($assignments->isEmpty()) {
+            return;
+        }
+
+        $timestamp = now();
+
+        UnitLecturer::query()->insert(
+            $assignments
+                ->map(fn (array $assignment) => [
+                    'unit_code' => $assignment['unit_code'],
+                    'lecturer_id' => $lecturerId,
+                    'course' => $assignment['course'],
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ])
+                ->all()
+        );
+    }
+
+    private function parseTeachingAssignments(string $rawAssignments)
+    {
+        $lines = preg_split('/\R/', $rawAssignments) ?: [];
+        $assignments = collect();
+
+        foreach ($lines as $index => $line) {
+            $normalizedLine = trim((string) $line);
+            if ($normalizedLine === '') {
+                continue;
+            }
+
+            $parts = preg_split('/\s*(?:\||,)\s*/', $normalizedLine) ?: [];
+            if (count($parts) !== 2) {
+                throw ValidationException::withMessages([
+                    'teaching_assignments' => ['Each teaching assignment must use the format UNIT_CODE | COURSE. Invalid line '.($index + 1).'.'],
+                ]);
+            }
+
+            $unitCode = Str::upper(trim((string) ($parts[0] ?? '')));
+            $courseCode = Str::upper(trim((string) ($parts[1] ?? '')));
+
+            if ($unitCode === '' || $courseCode === '') {
+                throw ValidationException::withMessages([
+                    'teaching_assignments' => ['Each teaching assignment must include both a unit code and a course. Invalid line '.($index + 1).'.'],
+                ]);
+            }
+
+            $assignments->push([
+                'unit_code' => $unitCode,
+                'course' => $courseCode,
+            ]);
+        }
+
+        return $assignments
+            ->unique(fn (array $assignment) => $assignment['unit_code'].'|'.$assignment['course'])
+            ->values();
     }
 
     private function staffProfileRoleFor(string $role, string $staffRole): string

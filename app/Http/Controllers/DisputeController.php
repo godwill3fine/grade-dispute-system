@@ -15,6 +15,7 @@ use App\Services\ActivityLogService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -78,33 +79,35 @@ class DisputeController extends Controller
                 'unit_code' => 'required|string|exists:units,unit_code',
             ]);
 
-            $mappings = UnitLecturer::where('unit_code', $request->unit_code)
-                ->orderBy('id')
-                ->get();
+            $routing = $this->resolveUnitLecturerRouting(
+                trim((string) $request->unit_code),
+                trim((string) ($student->course ?? '')),
+            );
 
-            if ($mappings->isEmpty()) {
+            if ($routing['status'] === 'missing_unit_mapping') {
                 return response()->json(['error' => 'No lecturer assigned to this unit'], 404);
             }
 
-            $lecturerIds = $mappings
-                ->pluck('lecturer_id')
-                ->filter(fn ($value) => is_string($value) && trim($value) !== '')
-                ->map(fn ($value) => trim((string) $value))
-                ->unique()
-                ->values();
-
-            if ($lecturerIds->isEmpty()) {
-                return response()->json(['error' => 'No lecturer assigned to this unit'], 404);
-            }
-
-            if ($lecturerIds->count() > 1) {
+            if ($routing['status'] === 'missing_course_mapping') {
                 return response()->json([
-                    'error' => 'Multiple lecturers are assigned to this unit. Please ask admin to keep one active lecturer per unit until year-based routing is added.',
+                    'error' => 'No lecturer is assigned to this unit for your course ('.$routing['course'].'). Please contact admin.',
+                ], 404);
+            }
+
+            if ($routing['status'] === 'ambiguous_course_mapping') {
+                return response()->json([
+                    'error' => 'Multiple lecturers are assigned to this unit for course '.$routing['course'].'. Please ask admin to keep one active lecturer per unit and course until stream-based routing is added.',
                 ], 409);
             }
 
-            $assignedTo = $lecturerIds->first();
-            $assignedRole = 'lecturer';
+            if ($routing['status'] === 'ambiguous_unit_mapping') {
+                return response()->json([
+                    'error' => 'Multiple lecturers are assigned to this unit. Please ask admin to keep one active lecturer per unit until course-based routing data is complete.',
+                ], 409);
+            }
+
+            $assignedTo = $routing['assigned_to'];
+            $assignedRole = $routing['assigned_role'];
         } else {
             $request->validate([
                 'assigned_role' => ['required', Rule::in(['exam_officer', 'hod', 'admin'])],
@@ -829,6 +832,17 @@ class DisputeController extends Controller
             ->map(fn ($value) => trim($value))
             ->unique()
             ->values();
+        $studentCourses = Student::query()
+            ->whereIn(
+                'reg_number',
+                $disputes
+                    ->pluck('student_id')
+                    ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+                    ->map(fn ($value) => trim($value))
+                    ->unique()
+                    ->values()
+            )
+            ->pluck('course', 'reg_number');
 
         $userNames = User::query()
             ->whereIn('identifier', $identifiers)
@@ -841,18 +855,13 @@ class DisputeController extends Controller
                 return [$lecturer->lecturer_id => $lecturer->formal_name];
             });
 
-        $unitLecturerNames = UnitLecturer::query()
+        $unitLecturerMappings = UnitLecturer::query()
             ->with('lecturer')
             ->whereIn('unit_code', $unitCodes)
             ->orderBy('unit_code')
+            ->orderBy('course')
             ->get()
-            ->groupBy('unit_code')
-            ->map(function ($mappings) {
-                $first = $mappings->first();
-                $lecturer = $first?->lecturer;
-
-                return $lecturer?->formal_name ?: null;
-            });
+            ->groupBy(fn (UnitLecturer $mapping) => trim((string) $mapping->unit_code));
 
         $staffNames = Staff::query()
             ->whereIn('staff_id', $identifiers)
@@ -861,11 +870,16 @@ class DisputeController extends Controller
                 return [$staff->staff_id => $staff->formal_name];
             });
 
-        $payload = $disputes->map(function (Dispute $dispute) use ($lecturerNames, $unitLecturerNames, $userNames, $staffNames) {
+        $payload = $disputes->map(function (Dispute $dispute) use ($lecturerNames, $unitLecturerMappings, $userNames, $staffNames, $studentCourses) {
             $assignedTo = trim((string) ($dispute->assigned_to ?? ''));
             $assignedName = $lecturerNames[$assignedTo] ?? $userNames[$assignedTo] ?? $staffNames[$assignedTo] ?? null;
             $unitCode = trim((string) ($dispute->unit_code ?? ''));
-            $assignedLecturerName = $unitLecturerNames[$unitCode] ?? $assignedName;
+            $studentCourse = trim((string) ($studentCourses[trim((string) ($dispute->student_id ?? ''))] ?? ''));
+            $mappings = $unitLecturerMappings->get($unitCode, collect());
+            $preferredMapping = $studentCourse !== ''
+                ? $mappings->first(fn (UnitLecturer $mapping) => $this->normalizeCourseCode($mapping->course) === $this->normalizeCourseCode($studentCourse))
+                : $mappings->first();
+            $assignedLecturerName = $preferredMapping?->lecturer?->formal_name ?? $assignedName;
 
             return array_merge($dispute->toArray(), [
                 'assigned_name' => $assignedName ?: ($assignedTo !== '' ? $assignedTo : 'Unassigned'),
@@ -1191,55 +1205,42 @@ class DisputeController extends Controller
             ];
         }
 
-        $mappings = UnitLecturer::query()
-            ->where('unit_code', $unitCode)
-            ->orderBy('id')
-            ->get();
+        $routing = $this->resolveUnitLecturerRouting(
+            trim((string) $unitCode),
+            trim((string) ($student->course ?? '')),
+        );
 
-        if ($mappings->isEmpty()) {
+        if ($routing['status'] === 'missing_unit_mapping') {
             throw ValidationException::withMessages([
-                'unit_code' => ['No lecturer is mapped to this unit yet. Select a lecturer or update the unit mapping first.'],
+                'unit_code' => ['No lecturer is mapped to this unit yet. Select a lecturer or update the teaching assignment first.'],
             ]);
         }
 
-        $studentCourse = Str::lower(trim((string) ($student->course ?? '')));
-        $courseMatches = $mappings
-            ->filter(function (UnitLecturer $mapping) use ($studentCourse) {
-                if ($studentCourse === '') {
-                    return false;
-                }
-
-                return Str::lower(trim((string) ($mapping->course ?? ''))) === $studentCourse;
-            })
-            ->values();
-
-        $eligibleMappings = $courseMatches->isNotEmpty() ? $courseMatches : $mappings;
-        $lecturerIds = $eligibleMappings
-            ->pluck('lecturer_id')
-            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
-            ->map(fn ($value) => trim((string) $value))
-            ->unique()
-            ->values();
-
-        if ($lecturerIds->isEmpty()) {
+        if ($routing['status'] === 'missing_course_mapping') {
             throw ValidationException::withMessages([
-                'lecturer_id' => ['No lecturer assignment is available for this unit.'],
+                'lecturer_id' => ['No lecturer is mapped to '.$unitCode.' for course '.$routing['course'].'. Select a lecturer manually or update the teaching assignment first.'],
             ]);
         }
 
-        if ($lecturerIds->count() > 1) {
+        if ($routing['status'] === 'ambiguous_course_mapping') {
             throw ValidationException::withMessages([
-                'lecturer_id' => ['Multiple lecturer mappings match this unit. Select a lecturer before creating the ticket.'],
+                'lecturer_id' => ['Multiple lecturer mappings match this unit and student course. Select a lecturer before creating the ticket.'],
+            ]);
+        }
+
+        if ($routing['status'] === 'ambiguous_unit_mapping') {
+            throw ValidationException::withMessages([
+                'lecturer_id' => ['Multiple lecturer mappings exist for this unit, and the student course is blank. Select a lecturer before creating the ticket.'],
             ]);
         }
 
         return [
-            'assigned_to' => $lecturerIds->first(),
-            'assigned_role' => 'lecturer',
+            'assigned_to' => $routing['assigned_to'],
+            'assigned_role' => $routing['assigned_role'],
             'status' => 'under_review',
             'stage' => 'Lecturer Review',
-            'reason' => $courseMatches->isNotEmpty()
-                ? 'Created by admin and auto-routed using the student course mapping.'
+            'reason' => $routing['scope'] === 'course'
+                ? 'Created by admin and auto-routed using the student course teaching assignment.'
                 : 'Created by admin and auto-routed using the only available unit mapping.',
         ];
     }
@@ -1406,11 +1407,18 @@ class DisputeController extends Controller
             if ($currentAssignedRole === 'lecturer' && $currentAssignedTo !== '') {
                 $selectedLecturerId = $currentAssignedTo;
             } else {
-                $selectedLecturerId = trim((string) (
-                    UnitLecturer::query()
-                        ->where('unit_code', $dispute->unit_code)
-                        ->value('lecturer_id')
-                ));
+                $routing = $this->resolveUnitLecturerRouting(
+                    trim((string) ($dispute->unit_code ?? '')),
+                    trim((string) (
+                        Student::query()
+                            ->where('reg_number', $dispute->student_id)
+                            ->value('course')
+                    )),
+                );
+
+                if ($routing['status'] === 'ok') {
+                    $selectedLecturerId = trim((string) $routing['assigned_to']);
+                }
             }
         }
 
@@ -1427,6 +1435,86 @@ class DisputeController extends Controller
             'status' => 'under_review',
             'reason' => 'Manually routed to Lecturer Review by admin.',
         ];
+    }
+
+    private function resolveUnitLecturerRouting(string $unitCode, ?string $studentCourse): array
+    {
+        $normalizedUnitCode = trim((string) $unitCode);
+        $normalizedCourse = $this->normalizeCourseCode($studentCourse);
+        $mappings = UnitLecturer::query()
+            ->where('unit_code', $normalizedUnitCode)
+            ->orderBy('course')
+            ->orderBy('id')
+            ->get();
+
+        if ($mappings->isEmpty()) {
+            return [
+                'status' => 'missing_unit_mapping',
+                'scope' => 'unit',
+                'course' => $normalizedCourse,
+            ];
+        }
+
+        $eligibleMappings = $normalizedCourse !== ''
+            ? $this->courseMatchedUnitLecturerMappings($mappings, $normalizedCourse)
+            : $mappings->values();
+
+        if ($eligibleMappings->isEmpty()) {
+            return [
+                'status' => 'missing_course_mapping',
+                'scope' => 'course',
+                'course' => $normalizedCourse,
+            ];
+        }
+
+        $lecturerIds = $this->uniqueLecturerIdsFromMappings($eligibleMappings);
+        if ($lecturerIds->isEmpty()) {
+            return [
+                'status' => $normalizedCourse !== '' ? 'missing_course_mapping' : 'missing_unit_mapping',
+                'scope' => $normalizedCourse !== '' ? 'course' : 'unit',
+                'course' => $normalizedCourse,
+            ];
+        }
+
+        if ($lecturerIds->count() > 1) {
+            return [
+                'status' => $normalizedCourse !== '' ? 'ambiguous_course_mapping' : 'ambiguous_unit_mapping',
+                'scope' => $normalizedCourse !== '' ? 'course' : 'unit',
+                'course' => $normalizedCourse,
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'scope' => $normalizedCourse !== '' ? 'course' : 'unit',
+            'course' => $normalizedCourse,
+            'assigned_to' => trim((string) $lecturerIds->first()),
+            'assigned_role' => 'lecturer',
+        ];
+    }
+
+    private function courseMatchedUnitLecturerMappings(Collection $mappings, string $studentCourse): Collection
+    {
+        $normalizedCourse = $this->normalizeCourseCode($studentCourse);
+
+        return $mappings
+            ->filter(fn (UnitLecturer $mapping) => $this->normalizeCourseCode($mapping->course) === $normalizedCourse)
+            ->values();
+    }
+
+    private function uniqueLecturerIdsFromMappings(Collection $mappings): Collection
+    {
+        return $mappings
+            ->pluck('lecturer_id')
+            ->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->values();
+    }
+
+    private function normalizeCourseCode(?string $course): string
+    {
+        return Str::upper(trim((string) $course));
     }
 
     private function resolveStaffRoutingSelection(Dispute $dispute, string $staffRole, string $stage): array

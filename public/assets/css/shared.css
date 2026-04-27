@@ -844,6 +844,18 @@ body.dark-theme {
     cursor: not-allowed;
 }
 
+.form-control:disabled {
+    background-color: var(--color-bg-disabled);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+body.dark-theme .form-control:disabled {
+    color: var(--color-text-heading);
+    -webkit-text-fill-color: var(--color-text-heading);
+}
+
 textarea.form-control {
     min-height: 140px;
     resize: vertical;

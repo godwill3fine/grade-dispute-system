@@ -27,7 +27,7 @@ class DisputeSubmissionTest extends TestCase
         $this->seedStudentWithUser('S001', 'BBC');
         $this->seedUnit('U001');
         $this->seedLecturer('L001', true);
-        $this->seedUnitLecturer('U001', 'L001', 'DIT');
+        $this->seedUnitLecturer('U001', 'L001', 'BBC');
 
         $response = $this
             ->actingAs(User::where('identifier', 'S001')->firstOrFail())
@@ -62,6 +62,33 @@ class DisputeSubmissionTest extends TestCase
             ]);
     }
 
+    public function test_it_does_not_fall_back_to_a_different_course_when_student_course_mapping_is_missing(): void
+    {
+        $this->seedStudentWithUser('S001', 'BBC');
+        $this->seedUnit('U001');
+        $this->seedLecturer('L001');
+        $this->seedUnitLecturer('U001', 'L001', 'DIT');
+
+        $response = $this
+            ->actingAs(User::where('identifier', 'S001')->firstOrFail())
+            ->postJson('/disputes', [
+                'student_id' => 'S001',
+                'type' => 'unit',
+                'unit_code' => 'U001',
+                'title' => 'Grade mismatch',
+                'description' => 'The grade recorded for this unit looks incorrect.',
+            ]);
+
+        $response
+            ->assertStatus(404)
+            ->assertJsonPath(
+                'error',
+                'No lecturer is assigned to this unit for your course (BBC). Please contact admin.',
+            );
+
+        $this->assertDatabaseCount('disputes', 0);
+    }
+
     public function test_it_allows_unit_dispute_submission_when_the_student_course_is_blank(): void
     {
         $this->seedStudentWithUser('S001', '');
@@ -91,7 +118,7 @@ class DisputeSubmissionTest extends TestCase
         ]);
     }
 
-    public function test_it_requires_a_single_active_lecturer_per_unit_until_year_based_routing_exists(): void
+    public function test_it_routes_to_the_course_matched_lecturer_when_multiple_lecturers_share_a_unit(): void
     {
         $this->seedStudentWithUser('S001', 'BBC');
         $this->seedUnit('U001');
@@ -111,13 +138,16 @@ class DisputeSubmissionTest extends TestCase
             ]);
 
         $response
-            ->assertStatus(409)
-            ->assertJsonPath(
-                'error',
-                'Multiple lecturers are assigned to this unit. Please ask admin to keep one active lecturer per unit until year-based routing is added.',
-            );
+            ->assertOk()
+            ->assertJsonPath('data.assigned_to', 'L001')
+            ->assertJsonPath('data.assigned_role', 'lecturer');
 
-        $this->assertDatabaseCount('disputes', 0);
+        $this->assertDatabaseHas('disputes', [
+            'student_id' => 'S001',
+            'unit_code' => 'U001',
+            'assigned_to' => 'L001',
+            'assigned_role' => 'lecturer',
+        ]);
     }
 
     public function test_student_disputes_endpoint_accepts_registration_numbers_with_slashes(): void

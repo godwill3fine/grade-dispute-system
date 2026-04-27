@@ -149,6 +149,22 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="edit-user-role-fields" data-role-section="lecturer" @if(($adminUserEdit['role'] ?? '') !== 'lecturer') hidden @endif>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminUserEditTeachingAssignments">Teaching Assignments</label>
+                                <textarea
+                                    id="adminUserEditTeachingAssignments"
+                                    name="teaching_assignments"
+                                    class="form-control"
+                                    rows="5"
+                                    placeholder="One per line: UNIT_CODE | COURSE"
+                                >{{ $adminUserEdit['teaching_assignments'] }}</textarea>
+                                <span class="form-text">Enter one assignment per line using <code>UNIT_CODE | COURSE</code>. Example: <code>BBC2204 | BBC</code>.</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -237,6 +253,11 @@
 
                     <span class="overview-label">Focus</span>
                     <span class="overview-value">{{ $adminUserEdit['responsibility'] }}</span>
+
+                    @if (($adminUserEdit['role'] ?? '') === 'lecturer')
+                        <span class="overview-label">Teaching Units</span>
+                        <span class="overview-value">{{ $adminUserEdit['teaching_assignments_summary'] }}</span>
+                    @endif
                 </div>
             </div>
         </section>

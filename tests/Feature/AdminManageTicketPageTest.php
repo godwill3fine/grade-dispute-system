@@ -93,6 +93,10 @@ class AdminManageTicketPageTest extends TestCase
         $this->assertSame('1.5 Days', $ticket['time_open_label'] ?? null);
         $this->assertNotEmpty($ticket['people'] ?? []);
         $this->assertNotEmpty($ticket['timeline'] ?? []);
+        $this->assertNotEmpty($ticket['print_case_overview_rows'] ?? []);
+        $this->assertNotEmpty($ticket['print_student_profile_rows'] ?? []);
+        $this->assertNotEmpty($ticket['print_academic_context_rows'] ?? []);
+        $this->assertSame('Case Admin', $ticket['print_generated_by_name'] ?? null);
     }
 
     public function test_admin_manage_ticket_formats_overdue_values_to_one_decimal_place(): void
@@ -246,6 +250,9 @@ class AdminManageTicketPageTest extends TestCase
             array_column($ticket['route_options'] ?? [], 'value')
         );
         $this->assertNotEmpty($ticket['routing_help_text'] ?? '');
+        $this->assertStringContainsString('course BBC', $ticket['print_routing_narrative'] ?? '');
+        $this->assertStringContainsString('LEC001', $ticket['print_routing_narrative'] ?? '');
+        $this->assertCount(1, array_filter($ticket['print_assignment_snapshot'] ?? [], fn (array $row): bool => !empty($row['is_student_course'])));
     }
 
     public function test_admin_can_mark_a_ticket_as_resolved(): void
