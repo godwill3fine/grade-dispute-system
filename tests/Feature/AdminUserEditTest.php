@@ -6,6 +6,8 @@ use App\Mail\AdminUserWelcomeMail;
 use App\Models\Lecturer;
 use App\Models\Staff;
 use App\Models\Student;
+use App\Models\Unit;
+use App\Models\UnitLecturer;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
@@ -217,6 +219,95 @@ class AdminUserEditTest extends TestCase
                 && $mail->identifier === 'USR100'
                 && $mail->requirePasswordReset;
         });
+    }
+
+    public function test_admin_can_update_a_lecturer_teaching_assignments_from_the_edit_page(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.test',
+            'identifier' => 'ADM100',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        User::create([
+            'name' => 'Jane Doe',
+            'email' => 'jane.doe@example.test',
+            'identifier' => 'LEC100',
+            'role' => 'lecturer',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        Lecturer::create([
+            'lecturer_id' => 'LEC100',
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
+            'department' => 'History',
+        ]);
+
+        Unit::create([
+            'unit_code' => 'BBC2204',
+            'unit_name' => 'Artificial Intelligence',
+        ]);
+
+        Unit::create([
+            'unit_code' => 'SMA2104',
+            'unit_name' => 'Mathematics for Science',
+        ]);
+
+        Unit::create([
+            'unit_code' => 'OLD100',
+            'unit_name' => 'Legacy Mapping',
+        ]);
+
+        UnitLecturer::create([
+            'unit_code' => 'OLD100',
+            'lecturer_id' => 'LEC100',
+            'course' => 'OLD',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson('/admin/users/LEC100', [
+                'first_name' => 'Jane',
+                'last_name' => 'Doe',
+                'email' => 'jane.doe@example.test',
+                'role' => 'lecturer',
+                'department' => 'History',
+                'salutation' => 'Dr.',
+                'status' => 'active',
+                'office_location' => 'Main Campus',
+                'teaching_assignments' => "BBC2204 | BBC\nSMA2104 | BIT",
+                'require_password_reset' => false,
+                'manual_approval_required' => false,
+                'send_account_email' => false,
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('user.identifier', 'LEC100')
+            ->assertJsonPath('user.role', 'lecturer');
+
+        $this->assertDatabaseHas('unit_lecturers', [
+            'unit_code' => 'BBC2204',
+            'lecturer_id' => 'LEC100',
+            'course' => 'BBC',
+        ]);
+
+        $this->assertDatabaseHas('unit_lecturers', [
+            'unit_code' => 'SMA2104',
+            'lecturer_id' => 'LEC100',
+            'course' => 'BIT',
+        ]);
+
+        $this->assertDatabaseMissing('unit_lecturers', [
+            'unit_code' => 'OLD100',
+            'lecturer_id' => 'LEC100',
+            'course' => 'OLD',
+        ]);
     }
 
     public function test_admin_cannot_deactivate_their_own_account_from_the_edit_page(): void

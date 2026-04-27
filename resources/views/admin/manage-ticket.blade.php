@@ -7,16 +7,10 @@
 
 @section('content')
 @php($ticket = $adminManageTicket ?? [])
-
-<div class="ticket-print-header print-only">
-    <div class="ticket-print-brand">Grade Dispute System</div>
-    <h1>Case File</h1>
-    <div class="ticket-print-meta">
-        <span>Ticket: {{ $ticket['ticket_number'] ?? 'Not available' }}</span>
-        <span>Printed: <span id="adminTicketPrintTimestamp">{{ now('Africa/Nairobi')->format('M j, Y g:i A') }}</span></span>
-    </div>
-    <p>{{ $ticket['page_summary'] ?? 'Review the case details, status, and routing context for this dispute.' }}</p>
-</div>
+@php($printNotesRaw = trim((string) ($ticket['internal_notes'] ?? '')))
+@php($printNotes = $printNotesRaw === '' || str_starts_with($printNotesRaw, 'No private admin notes have been saved yet.') ? 'No admin notes recorded.' : $printNotesRaw)
+@php($attachmentCount = (int) ($ticket['attachment_count'] ?? count($ticket['attachments'] ?? [])))
+@php($activityCount = (int) ($ticket['activity_count'] ?? count($ticket['timeline'] ?? [])))
 
 <div class="page-header flex-header ticket-page-header" data-ticket-number="{{ $ticket['ticket_number'] ?? 'Ticket' }}">
     <div class="header-text">
@@ -41,6 +35,160 @@
         </button>
     </div>
 </div>
+
+<article class="casefile-print-sheet print-only">
+    <header class="casefile-print-hero">
+        <div class="casefile-print-brand-row">
+            <div>
+                <span class="ticket-print-brand">Grade Dispute System</span>
+                <h1>Case File Report</h1>
+            </div>
+            <div class="casefile-print-badges">
+                <span class="casefile-print-badge">{{ $ticket['ticket_number'] ?? 'Not available' }}</span>
+                <span class="casefile-print-badge">{{ $ticket['status_label'] ?? 'Pending' }}</span>
+            </div>
+        </div>
+        <p class="casefile-print-inline-meta">
+            Prepared by {{ $ticket['print_generated_by_name'] ?? 'Administration' }} |
+            {{ $ticket['print_generated_by_department'] ?? 'Administration' }} |
+            Printed <span data-print-timestamp>{{ now('Africa/Nairobi')->format('M j, Y g:i A') }}</span>
+        </p>
+    </header>
+
+    <section class="casefile-print-section casefile-print-section-compact">
+        <div class="casefile-print-fact-grid casefile-print-fact-grid-compact">
+            <div class="casefile-print-fact-card">
+                <span class="casefile-print-fact-label">Review Stage</span>
+                <strong>{{ $ticket['review_stage'] ?? 'Pending Review' }}</strong>
+            </div>
+            <div class="casefile-print-fact-card">
+                <span class="casefile-print-fact-label">Priority</span>
+                <strong>{{ $ticket['priority_label'] ?? 'Medium' }}</strong>
+            </div>
+            <div class="casefile-print-fact-card">
+                <span class="casefile-print-fact-label">Submitted</span>
+                <strong>{{ $ticket['submitted_at'] ?? 'Not available' }}</strong>
+            </div>
+            <div class="casefile-print-fact-card">
+                <span class="casefile-print-fact-label">Current Reviewer</span>
+                <strong>{{ $ticket['reviewer_name'] ?? 'Not assigned' }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <div class="casefile-print-columns">
+        <section class="casefile-print-section">
+            <div class="casefile-print-section-header">
+                <h2>Student and Case</h2>
+                <span>Core identity and dispute details.</span>
+            </div>
+            <dl class="casefile-print-definition-list">
+                <div>
+                    <dt>Student</dt>
+                    <dd>{{ ($ticket['student_name'] ?? 'Student').' ('.($ticket['student_id'] ?? 'Not available').')' }}</dd>
+                </div>
+                <div>
+                    <dt>Course</dt>
+                    <dd>{{ $ticket['student_course_label'] ?? 'Not assigned' }}</dd>
+                </div>
+                <div>
+                    <dt>Unit</dt>
+                    <dd>{{ $ticket['unit_label'] ?? 'General Appeal' }}</dd>
+                </div>
+                <div>
+                    <dt>Department</dt>
+                    <dd>{{ $ticket['department_name'] ?? 'Not assigned' }}</dd>
+                </div>
+                <div>
+                    <dt>Faculty</dt>
+                    <dd>{{ $ticket['faculty_name'] ?? 'Not assigned' }}</dd>
+                </div>
+                <div>
+                    <dt>Issue Type</dt>
+                    <dd>{{ $ticket['issue_type'] ?? 'General Dispute' }}</dd>
+                </div>
+                <div>
+                    <dt>Time Open</dt>
+                    <dd>{{ $ticket['time_open_label'] ?? 'Not available' }}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="casefile-print-section">
+            <div class="casefile-print-section-header">
+                <h2>Routing Snapshot</h2>
+                <span>Current ownership and audit counts.</span>
+            </div>
+            <dl class="casefile-print-definition-list">
+                <div>
+                    <dt>Assigned Lecturer</dt>
+                    <dd>{{ $ticket['reviewer_name'] ?? 'Not assigned' }}</dd>
+                </div>
+                <div>
+                    <dt>Current Owner</dt>
+                    <dd>{{ $ticket['current_owner_name'] ?? 'Not assigned' }}</dd>
+                </div>
+                <div>
+                    <dt>Escalation Trigger</dt>
+                    <dd>{{ $ticket['escalation_trigger'] ?? 'Awaiting review context' }}</dd>
+                </div>
+                <div>
+                    <dt>Last Update</dt>
+                    <dd>{{ $ticket['last_update_label'] ?? 'No recorded updates yet' }}</dd>
+                </div>
+                <div>
+                    <dt>Attachments</dt>
+                    <dd>{{ $attachmentCount }} on file</dd>
+                </div>
+                <div>
+                    <dt>Activity Entries</dt>
+                    <dd>{{ $activityCount }} recorded</dd>
+                </div>
+            </dl>
+        </section>
+    </div>
+
+    <div class="casefile-print-columns casefile-print-columns-wide">
+        <section class="casefile-print-section">
+            <div class="casefile-print-section-header">
+                <h2>Dispute Statement</h2>
+                <span>Student submission summary.</span>
+            </div>
+            <div class="casefile-print-prose">
+                <h3>{{ $ticket['issue_type'] ?? 'General Dispute' }}</h3>
+                <p>{{ $ticket['print_case_description'] ?? 'No detailed dispute statement was provided on the ticket.' }}</p>
+            </div>
+        </section>
+
+        <section class="casefile-print-section">
+            <div class="casefile-print-section-header">
+                <h2>Admin Notes</h2>
+                <span>Internal notes saved on the case.</span>
+            </div>
+            <div class="ticket-print-notes">{{ $printNotes }}</div>
+        </section>
+    </div>
+
+    <footer class="casefile-signature-panel">
+        <p>{{ $ticket['print_certification_statement'] ?? 'I certify that this case file reflects the dispute record available in the Grade Dispute System at the time of printing.' }}</p>
+        <div class="casefile-signature-grid">
+            <div class="casefile-signature-field">
+                <span class="casefile-signature-label">Prepared by</span>
+                <strong>{{ $ticket['print_generated_by_name'] ?? 'Administration' }}</strong>
+                <span>{{ $ticket['print_generated_by_role'] ?? 'ADMIN' }}</span>
+            </div>
+            <div class="casefile-signature-field casefile-signature-line">
+                <span class="casefile-signature-label">Signature</span>
+            </div>
+            <div class="casefile-signature-field">
+                <span class="casefile-signature-label">Date</span>
+                <strong data-print-timestamp>{{ now('Africa/Nairobi')->format('M j, Y g:i A') }}</strong>
+                <span>Signed on print review</span>
+            </div>
+        </div>
+        <div class="casefile-stamp-box">Official stamp / seal</div>
+    </footer>
+</article>
 
 <div class="stats-container stats-grid-3 ticket-stats">
     <div class="stat-card escalation-stat ticket-stat-card">
@@ -170,7 +318,6 @@
                 <div class="form-group form-group-compact">
                     <label for="adminInternalNotes">Notes visible to admins only</label>
                     <textarea id="adminInternalNotes" class="form-control" rows="6">{{ $ticket['internal_notes'] ?? '' }}</textarea>
-                    <div class="ticket-print-notes print-only">{{ $ticket['internal_notes'] ?? '' }}</div>
                     <span class="form-text">Use this area for routing decisions, policy references, and internal follow-up reminders.</span>
                 </div>
 

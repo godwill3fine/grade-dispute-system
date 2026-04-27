@@ -1941,7 +1941,7 @@ export async function initAdminUserEdit() {
         responsibilityInput.value = role === 'student'
             ? (course ? `Course ${course} dispute submissions` : 'Student dispute submissions')
             : (role === 'lecturer'
-                ? 'Assessment review and ticket responses'
+                ? 'Assessment review and ticket responses for mapped teaching assignments'
                 : (role === 'staff'
                     ? (staffRole === 'hod'
                         ? 'Department-level escalations and lecturer-side review controls'
@@ -2669,7 +2669,7 @@ export async function initAdminManageTicket() {
     const routingBtn = document.getElementById('adminTicketRoutingBtn');
     const applyChangesBtn = document.getElementById('adminTicketApplyChangesBtn');
     const saveNotesBtn = document.getElementById('adminTicketSaveNotesBtn');
-    const printTimestamp = document.getElementById('adminTicketPrintTimestamp');
+    const printTimestamps = Array.from(document.querySelectorAll('[data-print-timestamp]'));
     const originalDocumentTitle = document.title;
 
     const setBusyState = (button, busy, busyLabel = 'Saving...') => {
@@ -2688,13 +2688,17 @@ export async function initAdminManageTicket() {
     const readSelectedValue = (select) => String(select?.value ?? '').trim();
 
     const syncPrintTimestamp = () => {
-        if (!printTimestamp) {
+        if (printTimestamps.length === 0) {
             return;
         }
 
-        printTimestamp.textContent = new Date().toLocaleString([], {
+        const timestamp = new Date().toLocaleString([], {
             dateStyle: 'medium',
             timeStyle: 'short',
+        });
+
+        printTimestamps.forEach((element) => {
+            element.textContent = timestamp;
         });
     };
 
