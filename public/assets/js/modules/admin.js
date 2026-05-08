@@ -2329,7 +2329,7 @@ export async function initAdminCreateTicket() {
 
         if (snapshotStatus) {
             snapshotStatus.textContent = immediate
-                ? (isUnit ? 'Under review' : 'Escalated for review')
+                ? (isUnit ? 'Under Review' : 'Escalated for review')
                 : 'Pending intake';
         }
 

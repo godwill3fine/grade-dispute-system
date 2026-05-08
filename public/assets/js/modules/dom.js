@@ -65,8 +65,10 @@ export function escapeHtml(input) {
 }
 
 export function statusBadge(status) {
-    const text = String(status ?? 'unknown').replaceAll('_', ' ');
     const key = String(status ?? '').toLowerCase();
+    const text = key === ''
+        ? 'Unknown'
+        : key.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
     const cls = STATUS_CLASS_MAP[key] ?? 'status-submitted';
     return `<span class="status-pill ${cls}">${escapeHtml(text)}</span>`;
 }

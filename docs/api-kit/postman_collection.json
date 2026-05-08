@@ -174,7 +174,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dispute_id\": {{dispute_id}},\n  \"status\": \"under_review\",\n  \"comment\": \"Moved to under_review\"\n}",
+              "raw": "{\n  \"dispute_id\": {{dispute_id}},\n  \"status\": \"under_review\",\n  \"comment\": \"Moved to Under Review\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/dispute/status"

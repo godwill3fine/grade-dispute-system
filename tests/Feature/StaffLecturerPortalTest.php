@@ -142,6 +142,12 @@ class StaffLecturerPortalTest extends TestCase
             'status' => 'under_review',
         ]);
 
+        $this->assertDatabaseHas('notifications', [
+            'recipient_id' => 'S001',
+            'title' => 'Dispute Status Updated',
+            'message' => 'Your dispute '.$dispute->ticket_number.' status changed to Under Review',
+        ]);
+
         $this->actingAs($staffUser)
             ->getJson('/lecturer/disputes/H002')
             ->assertStatus(403);

@@ -119,7 +119,7 @@ Protected route header: `X-User-Identifier: <identifier>`
 {
   "dispute_id": 1,
   "status": "under_review",
-  "comment": "Moved to under_review"
+  "comment": "Moved to Under Review"
 }
 ```
 - 200: `{"message":"Status updated successfully"}`

@@ -219,20 +219,21 @@ class DisputeController extends Controller
             'performed_by' => $performedBy,
         ]);
 
+        $oldStatusLabel = $this->formatDisputeStatusLabel($oldStatus);
+        $newStatusLabel = $this->formatDisputeStatusLabel((string) $request->status);
+
         ActivityLogService::log(
             $performedBy,
             'Status Updated',
             'dispute',
             $dispute->id,
-            'Status changed from '.$oldStatus.' to '.$request->status
+            'Status changed from '.$oldStatusLabel.' to '.$newStatusLabel
         );
-
-        $statusLabel = Str::title(str_replace('_', ' ', (string) $request->status));
 
         NotificationService::notify(
             $dispute->student_id,
             'Dispute Status Updated',
-            'Your dispute '.$dispute->ticket_number.' status changed to '.$statusLabel,
+            'Your dispute '.$dispute->ticket_number.' status changed to '.$newStatusLabel,
             '/student/tickets/'.$dispute->id,
             $dispute->id
         );
@@ -752,13 +753,16 @@ class DisputeController extends Controller
                 ]);
             }
 
+            $oldStatusLabel = $this->formatDisputeStatusLabel($oldStatus);
+            $newStatusLabel = $this->formatDisputeStatusLabel($newStatus);
+
             if ($statusChanged) {
                 DisputeLog::create([
                     'dispute_id' => $dispute->id,
                     'action' => 'Status Updated',
                     'old_status' => $oldStatus,
                     'new_status' => $newStatus,
-                    'comment' => 'Status changed from '.$oldStatus.' to '.$newStatus.'.',
+                    'comment' => 'Status changed from '.$oldStatusLabel.' to '.$newStatusLabel.'.',
                     'performed_by' => $performedBy,
                 ]);
             }
@@ -770,7 +774,7 @@ class DisputeController extends Controller
                         .' -> '
                         .$this->formatAssignmentSummary($newAssignedTo, $newAssignedRole)
                     : null,
-                $statusChanged ? 'Status '.$oldStatus.' -> '.$newStatus : null,
+                $statusChanged ? 'Status '.$oldStatusLabel.' -> '.$newStatusLabel : null,
             ])
                 ->filter()
                 ->implode('; ');
@@ -1517,6 +1521,15 @@ class DisputeController extends Controller
     private function normalizeCourseCode(?string $course): string
     {
         return Str::upper(trim((string) $course));
+    }
+
+    private function formatDisputeStatusLabel(?string $status): string
+    {
+        $normalized = trim((string) $status);
+
+        return $normalized !== ''
+            ? Str::title(str_replace('_', ' ', $normalized))
+            : 'Pending';
     }
 
     private function resolveStaffRoutingSelection(Dispute $dispute, string $staffRole, string $stage): array

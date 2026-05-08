@@ -271,7 +271,7 @@
       "params": [],
       "body": {
         "type": "json",
-        "raw": "{\"dispute_id\":{{dispute_id}},\"status\":\"under_review\",\"comment\":\"Moved to under_review\"}",
+        "raw": "{\"dispute_id\":{{dispute_id}},\"status\":\"under_review\",\"comment\":\"Moved to Under Review\"}",
         "form": []
       },
       "tests": []

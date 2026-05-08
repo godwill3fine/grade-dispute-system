@@ -38,7 +38,7 @@
 | ------------------ | ---------------------- |
 | --status-submitted | Submitted ticket badge |
 | --status-pending   | Pending status         |
-| --status-review    | Under review           |
+| --status-review    | Under Review           |
 | --status-resolved  | Resolved tickets       |
 | --status-rejected  | Rejected tickets       |
 | --status-escalated | Escalated disputes     |
