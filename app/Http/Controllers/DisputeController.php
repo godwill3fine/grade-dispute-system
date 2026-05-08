@@ -227,10 +227,12 @@ class DisputeController extends Controller
             'Status changed from '.$oldStatus.' to '.$request->status
         );
 
+        $statusLabel = Str::title(str_replace('_', ' ', (string) $request->status));
+
         NotificationService::notify(
             $dispute->student_id,
             'Dispute Status Updated',
-            'Your dispute '.$dispute->ticket_number.' status changed to '.$request->status,
+            'Your dispute '.$dispute->ticket_number.' status changed to '.$statusLabel,
             '/student/tickets/'.$dispute->id,
             $dispute->id
         );
