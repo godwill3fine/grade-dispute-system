@@ -9,6 +9,7 @@ use App\Http\Controllers\SystemSettingController;
 use App\Models\Student;
 use Illuminate\Support\Facades\Route;
 
+// Public entry points for the landing page and authentication screens.
 Route::get('/', [FrontendController::class, 'landing'])->name('portal.landing');
 Route::get('/portal/auth', [FrontendController::class, 'authPage'])->name('portal.auth');
 Route::get('/portal/signup', [FrontendController::class, 'signupPage'])->name('portal.signup');
@@ -20,6 +21,7 @@ Route::get('/portal/password/forgot/reset', [FrontendController::class, 'forgotP
 Route::get('/login', fn () => redirect()->route('portal.auth'))->name('login');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('portal.logout');
 
+// Authenticated portal pages are rendered server-side and hydrated by page-specific JavaScript.
 Route::middleware('auth')->prefix('portal')->group(function () {
     Route::get('/app', [FrontendController::class, 'appHome'])->name('portal.app');
 
@@ -52,6 +54,7 @@ Route::middleware('auth')->prefix('portal')->group(function () {
     Route::get('/admin/activity', [FrontendController::class, 'adminActivity'])->name('portal.admin.activity');
 });
 
+// JSON authentication endpoints used by the login and password reset forms.
 Route::post('/identify', [AuthController::class, 'identify']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -63,6 +66,7 @@ Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordRes
 
 Route::get('/units/search', [DisputeController::class, 'searchUnits']);
 
+// Student-only dispute endpoints cover submission and the student's own queue.
 Route::middleware(['role:student'])->group(function () {
     Route::post('/disputes', [DisputeController::class, 'store']);
     Route::post('/dispute/store', [DisputeController::class, 'store']);
@@ -70,6 +74,7 @@ Route::middleware(['role:student'])->group(function () {
         ->where('student_id', '.*');
 });
 
+// Lecturer, staff, and admin reviewers share the response and status update APIs.
 Route::middleware(['role:lecturer,staff,admin'])->group(function () {
     Route::get('/lecturer/disputes/{lecturer_id}', [DisputeController::class, 'lecturerDisputes'])
         ->where('lecturer_id', '.*');
@@ -80,6 +85,7 @@ Route::middleware(['role:lecturer,staff,admin'])->group(function () {
         ->where('lecturer_id', '.*');
 });
 
+// Shared dispute utilities are available to every signed-in portal role.
 Route::middleware(['role:student,lecturer,staff,admin'])->group(function () {
     Route::get('/dispute/logs/{dispute_id}', [DisputeController::class, 'disputeLogs']);
     Route::get('/dispute/{id}/timeline', [DisputeController::class, 'timeline']);
@@ -91,6 +97,7 @@ Route::middleware(['role:student,lecturer,staff,admin'])->group(function () {
         ->where('userId', '.*');
 });
 
+// Admin APIs manage users, reports, settings, and higher-level dispute oversight.
 Route::middleware(['role:admin'])->group(function () {
     Route::get('/admin/dashboard', [DisputeController::class, 'adminDashboard']);
     Route::get('/admin/disputes', [DisputeController::class, 'allDisputes']);

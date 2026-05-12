@@ -10,6 +10,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    // Keep only account-level fields mass assignable; profile details live in role tables.
     protected $fillable = [
         'name',
         'email',
@@ -64,11 +65,13 @@ class User extends Authenticatable
     
     public function studentDisputes()
     {
+        // Students are linked to disputes by their university identifier.
         return $this->hasMany(Dispute::class, 'student_id', 'identifier');
     }
     
     public function assignedDisputes()
     {
+        // Reviewers are linked to disputes by the same identifier used at login.
         return $this->hasMany(Dispute::class, 'assigned_to', 'identifier');
     }
     

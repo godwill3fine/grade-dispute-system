@@ -1,5 +1,6 @@
 import { getCurrentUser } from './dom.js';
 
+// Converts any API error payload into one predictable object shape.
 function normalizeErrorPayload(payload, status, fallback) {
     if (!payload || typeof payload !== 'object') {
         return { status, message: fallback, errors: null };
@@ -14,6 +15,7 @@ function normalizeErrorPayload(payload, status, fallback) {
     };
 }
 
+// Allows endpoints to return JSON, plain text, or an empty response.
 async function parseResponse(response) {
     const text = await response.text();
     if (!text) {
@@ -27,6 +29,7 @@ async function parseResponse(response) {
     }
 }
 
+// Wraps fetch with CSRF, JSON encoding, and the current portal identifier header.
 export async function apiRequest(path, options = {}) {
     const {
         method = 'GET',

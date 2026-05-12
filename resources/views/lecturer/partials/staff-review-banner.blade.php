@@ -5,6 +5,7 @@
 @endphp
 
 @if ($isStaffReviewer)
+    {{-- Staff reviewers see this reminder because they use the lecturer queue for escalations. --}}
     <section class="staff-review-banner" aria-label="Staff review access">
         <div class="staff-review-banner-icon">
             <span class="material-symbols-outlined">shield_person</span>

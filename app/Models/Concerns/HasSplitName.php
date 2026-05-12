@@ -6,6 +6,7 @@ trait HasSplitName
 {
     public function getFullNameAttribute(): string
     {
+        // Prefer the legacy full_name field until all records have split names.
         $legacyFullName = $this->normalizeName($this->attributes['full_name'] ?? null);
         if ($legacyFullName !== '') {
             return $legacyFullName;
@@ -19,6 +20,7 @@ trait HasSplitName
 
     public function setFullNameAttribute(?string $value): void
     {
+        // Writing full_name keeps first_name and last_name in sync for newer screens.
         [$firstName, $lastName] = $this->splitNameParts($value);
 
         $this->attributes['first_name'] = $firstName;
@@ -32,6 +34,7 @@ trait HasSplitName
 
     public function getFormalNameAttribute(): string
     {
+        // Staff-facing screens use salutation plus last name when available.
         $salutation = $this->normalizeName($this->attributes['salutation'] ?? null);
         $lastName = $this->normalizeName($this->attributes['last_name'] ?? null);
 
@@ -73,6 +76,7 @@ trait HasSplitName
 
     protected function normalizeName(?string $value): string
     {
+        // Collapse accidental extra spacing before names reach the UI.
         $trimmed = trim((string) $value);
         if ($trimmed === '') {
             return '';

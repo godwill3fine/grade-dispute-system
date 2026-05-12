@@ -20,26 +20,32 @@ const STAFF_ACTIVE_STATUSES = ['pending', 'under_review', 'escalated'];
 const LECTURER_HISTORY_STATUSES = ['resolved', 'rejected', 'escalated', 'closed'];
 const STAFF_HISTORY_STATUSES = ['resolved', 'rejected', 'closed'];
 
+// Encodes reviewer identifiers before placing them in route URLs.
 function encodeRouteParam(value) {
     return encodeURIComponent(String(value ?? '').trim());
 }
 
+// Reads the signed-in reviewer identifier.
 function lecturerIdentifier() {
     return getCurrentUser()?.identifier ?? '';
 }
 
+// Staff reviewers share the lecturer UI but have a wider active queue.
 function isStaffReviewer() {
     return String(getCurrentUser()?.role ?? '').toLowerCase() === 'staff';
 }
 
+// Returns the statuses that should appear in the active reviewer queue.
 function activeLecturerStatuses() {
     return isStaffReviewer() ? STAFF_ACTIVE_STATUSES : ACTIVE_LECTURER_STATUSES;
 }
 
+// Returns the statuses that should appear in reviewer history.
 function lecturerHistoryStatuses() {
     return isStaffReviewer() ? STAFF_HISTORY_STATUSES : LECTURER_HISTORY_STATUSES;
 }
 
+// Loads disputes assigned to the current reviewer.
 async function fetchLecturerDisputes() {
     const identifier = lecturerIdentifier();
     if (!identifier) {
@@ -50,12 +56,14 @@ async function fetchLecturerDisputes() {
     return Array.isArray(data) ? data : [];
 }
 
+// Turns underscored API values into readable labels.
 function humanizeText(value) {
     return String(value ?? '')
         .replaceAll('_', ' ')
         .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+// Reads the student's course code for course-level filtering.
 function lecturerCourseCode(item) {
     const studentCourse = String(item?.student_course ?? '').trim();
     return studentCourse === '' ? 'profile-missing' : studentCourse;
@@ -65,14 +73,17 @@ function lecturerCourseLabel(courseCode) {
     return courseCode === 'profile-missing' ? 'Profile Missing' : courseCode;
 }
 
+// Splits reviewer queues into currently actionable disputes.
 function activeLecturerDisputes(items) {
     return items.filter((item) => activeLecturerStatuses().includes(String(item.status ?? '').toLowerCase()));
 }
 
+// Splits reviewer queues into completed or moved-on disputes.
 function lecturerHistoryDisputes(items) {
     return items.filter((item) => lecturerHistoryStatuses().includes(String(item.status ?? '').toLowerCase()));
 }
 
+// Shows the dispute lane or assignment stage under the title.
 function disputeLaneText(item) {
     const stage = String(item?.assignment_name ?? '').trim();
     if (stage !== '') {
@@ -83,6 +94,7 @@ function disputeLaneText(item) {
     return assignedRole === '' ? '' : humanizeText(assignedRole);
 }
 
+// Renders the title cell with optional assignment context.
 function disputeTitleCell(item) {
     const title = escapeHtml(item?.title ?? '-');
     const lane = disputeLaneText(item);
@@ -99,6 +111,7 @@ function disputeTitleCell(item) {
     `;
 }
 
+// Applies the course filter to reviewer queues.
 function filterByCourse(items, courseCode) {
     if (courseCode === 'all') {
         return items;
@@ -107,6 +120,7 @@ function filterByCourse(items, courseCode) {
     return items.filter((item) => lecturerCourseCode(item) === courseCode);
 }
 
+// Applies keyword search to reviewer queues.
 function filterByQuery(items, query) {
     const normalizedQuery = String(query ?? '').trim().toLowerCase();
     if (normalizedQuery === '') {
@@ -129,6 +143,7 @@ function filterByQuery(items, query) {
     });
 }
 
+// Updates the reviewer history metric cards.
 function updateLecturerHistoryMetrics(disputes) {
     const metrics = {
         total: disputes.length,
@@ -145,6 +160,7 @@ function updateLecturerHistoryMetrics(disputes) {
     });
 }
 
+// Builds clickable course filters for the reviewer dashboard.
 function renderCourseFilters(targetId, disputes, activeCourse) {
     const container = document.getElementById(targetId);
     if (!container) {
@@ -167,6 +183,7 @@ function renderCourseFilters(targetId, disputes, activeCourse) {
         .join('');
 }
 
+// Populates the course dropdown on the reviewer history page.
 function populateHistoryCourseFilter(disputes) {
     const select = document.getElementById('lecturerHistoryCourseFilter');
     if (!select) {
@@ -186,6 +203,7 @@ function csvValue(value) {
     return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
 
+// Downloads a generated CSV file for reviewer exports.
 function exportCsv(filename, headers, rows) {
     const csv = [
         headers.map(csvValue).join(','),
@@ -203,6 +221,7 @@ function exportCsv(filename, headers, rows) {
     URL.revokeObjectURL(url);
 }
 
+// Exports the active reviewer queue.
 function exportLecturerDashboardData(disputes) {
     if (!disputes.length) {
         showToast('No lecturer queue records to export.', 'warning');
@@ -223,6 +242,7 @@ function exportLecturerDashboardData(disputes) {
     );
 }
 
+// Exports reviewer history records.
 function exportLecturerHistoryData(disputes) {
     if (!disputes.length) {
         showToast('No lecturer history records to export.', 'warning');
@@ -243,6 +263,7 @@ function exportLecturerHistoryData(disputes) {
     );
 }
 
+// Updates reviewer dashboard metric cards.
 function renderLecturerMetrics(disputes, alerts) {
     const pendingCount = isStaffReviewer()
         ? disputes.filter((d) => d.status === 'escalated').length
@@ -263,6 +284,7 @@ function renderLecturerMetrics(disputes, alerts) {
     });
 }
 
+// Renders recent actionable disputes on the reviewer dashboard.
 function renderLecturerRecent(disputes) {
     const body = document.getElementById('lecturerRecentDisputes');
     if (!body) {
@@ -308,6 +330,7 @@ function applyLecturerDashboardFilters() {
     renderLecturerRecent(lecturerDashboardItems());
 }
 
+// Renders the full reviewer queue table.
 function renderLecturerQueue(disputes) {
     const body = document.getElementById('lecturerDisputesTableBody');
     if (!body) {
@@ -352,6 +375,7 @@ function applyLecturerFilter() {
     renderLecturerQueue(lecturerDisputeCache.filter((item) => item.status === filter.value));
 }
 
+// Renders the reviewer history table.
 function renderLecturerHistoryRows(disputes) {
     const body = document.getElementById('lecturerHistoryTableBody');
     if (!body) {
@@ -421,6 +445,7 @@ function applyLecturerHistoryFilters() {
     updateLecturerHistoryFooter(filtered.length, total);
 }
 
+// Renders the summary card on reviewer dispute detail pages.
 function renderOverview(dispute, targetId) {
     const el = document.getElementById(targetId);
     if (!el) {
@@ -448,6 +473,7 @@ function renderOverview(dispute, targetId) {
     `;
 }
 
+// Renders the dispute timeline for reviewer detail pages.
 function renderTimeline(logs, targetId) {
     const timeline = document.getElementById(targetId);
     if (!timeline) {
@@ -482,6 +508,7 @@ function renderTimeline(logs, targetId) {
     `;
 }
 
+// Renders evidence download links for reviewer detail pages.
 function renderAttachments(items, targetId) {
     const list = document.getElementById(targetId);
     if (!list) {
@@ -505,6 +532,7 @@ function renderAttachments(items, targetId) {
         .join('');
 }
 
+// Reloads overview, timeline, and attachments after reviewer actions.
 async function reloadLecturerDetail(id, dispute) {
     const [timeline, attachments] = await Promise.all([
         apiGet(`/dispute/${id}/timeline`),
@@ -516,6 +544,7 @@ async function reloadLecturerDetail(id, dispute) {
     renderAttachments(attachments, 'lecturerAttachmentList');
 }
 
+// Sends reviewer feedback to the dispute response endpoint.
 async function submitResponse(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -545,6 +574,7 @@ async function submitResponse(event) {
     }
 }
 
+// Sends reviewer status changes to the status endpoint.
 async function submitStatus(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -574,6 +604,7 @@ async function submitStatus(event) {
     }
 }
 
+// Initializes the reviewer dashboard page.
 export async function initLecturerDashboard() {
     const statusFilter = document.getElementById('lecturerDashboardStatusFilter');
     const courseFilters = document.getElementById('lecturerDashboardCourseFilters');
@@ -610,6 +641,7 @@ export async function initLecturerDashboard() {
     }
 }
 
+// Initializes the reviewer queue page.
 export async function initLecturerDisputes() {
     const filter = document.getElementById('lecturerStatusFilter');
     filter?.addEventListener('change', applyLecturerFilter);
@@ -622,6 +654,7 @@ export async function initLecturerDisputes() {
     }
 }
 
+// Initializes the reviewer history page.
 export async function initLecturerHistory() {
     const search = document.getElementById('lecturerHistorySearch');
     const outcomeFilter = document.getElementById('lecturerHistoryOutcomeFilter');
@@ -646,6 +679,7 @@ export async function initLecturerHistory() {
     }
 }
 
+// Initializes the reviewer dispute detail page.
 export async function initLecturerDisputeDetail() {
     const id = disputeId();
     if (!id) {

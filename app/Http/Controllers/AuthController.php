@@ -18,6 +18,7 @@ class AuthController extends Controller
     private const PASSWORD_RESET_CODE_TTL_MINUTES = 10;
     private const PASSWORD_RESET_VERIFICATION_TTL_MINUTES = 15;
 
+    // Finds the role-specific profile that backs a first-time portal account.
     private function resolveUserProfile(string $identifier, string $role): ?array
     {
         if ($role === 'student') {
@@ -59,7 +60,7 @@ class AuthController extends Controller
         return null;
     }
 
-    //Identify user
+    // Identifies whether the university ID belongs to a new or existing portal user.
     public function identify(Request $request)
     {
         $request->validate([
@@ -99,7 +100,7 @@ class AuthController extends Controller
         ]);
     }
 
-    //First-Time Password Setup
+    // Creates the first password for a verified student, lecturer, staff, or admin account.
     public function setPassword(Request $request)
     {
         $request->validate([
@@ -130,7 +131,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'Account created successfully']);
     }
 
-    //Login(Returning User)
+    // Signs in returning users after checking account status and reset requirements.
     public function login(Request $request)
     {
         $request->validate([
@@ -176,7 +177,7 @@ class AuthController extends Controller
         ]);
     }
 
-    // Forgot Password / Reset Password
+    // Supports the legacy one-step password reset endpoint.
     public function forgotPassword(Request $request)
     {
         $request->validate([
@@ -215,6 +216,7 @@ class AuthController extends Controller
             ], 404);
         }
 
+        // Store the reset identity in session so the next steps cannot switch accounts silently.
         $this->storePasswordResetFlow($request, [
             'identifier' => $user->identifier,
             'email' => strtolower(trim((string) $user->email)),
@@ -280,6 +282,7 @@ class AuthController extends Controller
             ], 500);
         }
 
+        // Hash the short-lived code before keeping it in the session.
         $this->storePasswordResetFlow($request, [
             'identifier' => $user->identifier,
             'email' => $storedEmail,
@@ -329,6 +332,7 @@ class AuthController extends Controller
             ], 422);
         }
 
+        // Mark the flow as verified and remove the code so it cannot be reused.
         $this->storePasswordResetFlow($request, [
             'code_hash' => null,
             'code_expires_at' => null,
@@ -374,6 +378,7 @@ class AuthController extends Controller
             ], 404);
         }
 
+        // Completing a verified reset also clears any forced-reset flag from admin invites.
         $user->password = Hash::make((string) $request->password);
         $user->require_password_reset = false;
         $user->save();
@@ -423,6 +428,7 @@ class AuthController extends Controller
 
     private function normalizeAccountStatus(?string $status): string
     {
+        // Collapse older status labels into the three states the sign-in flow understands.
         $normalized = strtolower(trim((string) $status));
 
         return match ($normalized) {

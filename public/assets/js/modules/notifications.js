@@ -1,10 +1,12 @@
 import { apiGet, apiPost } from './api.js';
 import { escapeHtml, formatDate, getCurrentUser, showToast } from './dom.js';
 
+// Encodes route parameters that can contain slashes or spaces.
 function encodeRouteParam(value) {
     return encodeURIComponent(String(value ?? '').trim());
 }
 
+// Rebuilds the notification menu and unread badge from API data.
 function renderNotifications(items) {
     const list = document.querySelector('[data-notification-list]');
     const badge = document.querySelector('[data-notification-count]');
@@ -46,10 +48,12 @@ function renderNotifications(items) {
     total.textContent = String(items.length);
 }
 
+// Marks one notification as read on the server.
 async function markAsRead(id) {
     await apiPost(`/notifications/read/${id}`);
 }
 
+// Handles notification clicks with event delegation.
 function registerNotificationClicks() {
     const list = document.querySelector('[data-notification-list]');
     if (!list) {
@@ -83,6 +87,7 @@ function registerNotificationClicks() {
     });
 }
 
+// Loads notifications for the signed-in user into the topbar menu.
 export async function initNotifications() {
     const user = getCurrentUser();
     if (!user?.identifier) {

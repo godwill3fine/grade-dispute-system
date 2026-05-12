@@ -28,6 +28,7 @@ use Illuminate\Validation\ValidationException;
 
 class AdminController extends Controller
 {
+    // Returns the most recent admin-visible activity log entries.
     public function recentActivity()
     {
         return ActivityLog::with('user')
@@ -36,6 +37,7 @@ class AdminController extends Controller
             ->get();
     }
 
+    // Builds the user directory by combining account rows with role-specific profiles.
     public function userDirectory(): JsonResponse
     {
         $users = User::query()
@@ -111,6 +113,7 @@ class AdminController extends Controller
         return response()->json($payload);
     }
 
+    // Creates a managed user account and the matching student, lecturer, or staff profile.
     public function storeUser(Request $request): JsonResponse
     {
         $request->validate([
@@ -309,6 +312,7 @@ class AdminController extends Controller
         ], 201);
     }
 
+    // Updates an account and keeps the role-specific profile tables in sync.
     public function updateUser(Request $request, string $identifier): JsonResponse
     {
         $user = User::query()->where('identifier', $identifier)->firstOrFail();
@@ -466,6 +470,7 @@ class AdminController extends Controller
         ]);
     }
 
+    // Handles focused actions such as activation, deactivation, resend, and delete.
     public function userAction(Request $request, string $identifier): JsonResponse
     {
         $request->validate([
@@ -599,6 +604,7 @@ class AdminController extends Controller
         ]);
     }
 
+    // Imports users from CSV data and reports created, skipped, and errored rows.
     public function importUsers(Request $request): JsonResponse
     {
         $request->validate([
@@ -694,6 +700,7 @@ class AdminController extends Controller
         ]);
     }
 
+    // Creates or skips one normalized import row.
     private function importUserRow(array $row, array $roleIds): array
     {
         $role = $this->normalizeImportRole($this->requiredImportValue($row, 'role', 'role'));
@@ -849,6 +856,7 @@ class AdminController extends Controller
         return ['used_default_password' => $usedDefaultPassword];
     }
 
+    // Parses the uploaded CSV file into keyed rows using canonical column names.
     private function parseImportRows(string $path): array
     {
         $handle = fopen($path, 'rb');
@@ -908,6 +916,7 @@ class AdminController extends Controller
         }
     }
 
+    // Normalizes alternate CSV headings into the names the importer expects.
     private function canonicalImportColumn(mixed $value): string
     {
         $normalized = trim((string) preg_replace('/^\xEF\xBB\xBF/', '', trim((string) $value)));
@@ -930,6 +939,7 @@ class AdminController extends Controller
         ][$normalized] ?? $normalized;
     }
 
+    // Supports both split name columns and a legacy full-name import column.
     private function resolveImportNameParts(array $row): array
     {
         $firstName = $this->optionalImportValue($row, 'first_name');
@@ -951,6 +961,7 @@ class AdminController extends Controller
         return [$firstName, $lastName];
     }
 
+    // Reads a required import value and raises a clear row-level error when missing.
     private function requiredImportValue(array $row, string $key, string $label): string
     {
         $value = $this->optionalImportValue($row, $key);
@@ -963,11 +974,13 @@ class AdminController extends Controller
         return $value;
     }
 
+    // Reads an optional import value as a trimmed string.
     private function optionalImportValue(array $row, string $key): string
     {
         return trim((string) ($row[$key] ?? ''));
     }
 
+    // Collapses CSV role labels into application role keys.
     private function normalizeImportRole(string $role): string
     {
         $normalized = Str::lower(trim($role));
@@ -981,6 +994,7 @@ class AdminController extends Controller
         return $normalized;
     }
 
+    // Derives the staff subtype used by staff profiles and permissions.
     private function normalizeStaffRole(string $staffRole, string $role): string
     {
         if ($role === 'admin') {
@@ -1011,6 +1025,7 @@ class AdminController extends Controller
         return $normalized;
     }
 
+    // Converts imported study year values into the stored integer range.
     private function normalizeImportYear(string $year): int
     {
         if (! ctype_digit($year)) {
@@ -1022,6 +1037,7 @@ class AdminController extends Controller
         return (int) $year;
     }
 
+    // Looks up or creates the department referenced by an import row.
     private function resolveImportDepartment(string $departmentName, string $facultyName): ?Department
     {
         if ($departmentName === '') {
@@ -1041,6 +1057,7 @@ class AdminController extends Controller
         return $department;
     }
 
+    // Builds the short status message shown after CSV import.
     private function importSummaryMessage(int $createdCount, int $skippedCount, int $errorCount): string
     {
         $parts = [];
@@ -1064,6 +1081,7 @@ class AdminController extends Controller
         return ucfirst(implode(', ', $parts)).'.';
     }
 
+    // Standardizes user-entered department names before matching or creation.
     private function normalizeDepartmentSelection(string $departmentName): string
     {
         $normalized = trim($departmentName);
@@ -1071,6 +1089,7 @@ class AdminController extends Controller
         return $normalized === 'None / Not Applicable' ? '' : $normalized;
     }
 
+    // Converts account status labels into the stored status values.
     private function normalizeAccountStatus(string $status): string
     {
         $normalized = Str::lower(trim(str_replace('_', ' ', $status)));
@@ -1082,6 +1101,7 @@ class AdminController extends Controller
         };
     }
 
+    // Keeps manually approved accounts pending until an admin activates them.
     private function effectiveAccountStatus(string $status, bool $manualApprovalRequired): string
     {
         if ($manualApprovalRequired && $status === 'active') {
@@ -1091,6 +1111,7 @@ class AdminController extends Controller
         return $status;
     }
 
+    // Explains to the admin whether the new account is ready or waiting.
     private function buildUserCreateAdminNotice(
         bool $sendWelcomeEmail,
         bool $welcomeEmailSent,
@@ -1127,6 +1148,7 @@ class AdminController extends Controller
         return [trim($manualNote.' '.$statusNote), 'warning'];
     }
 
+    // Explains the result of an admin account edit.
     private function buildUserEditAdminNotice(
         bool $sendAccountEmail,
         bool $accountEmailSent,
@@ -1159,6 +1181,7 @@ class AdminController extends Controller
         return [trim($statusNote), 'warning'];
     }
 
+    // Prevents admins from demoting or disabling their own active account.
     private function guardSelfAdministration(?User $actor, User $target, string $nextRole, string $nextStatus): void
     {
         if (! $actor || $actor->id !== $target->id) {
@@ -1178,6 +1201,7 @@ class AdminController extends Controller
         }
     }
 
+    // Writes the matching profile table after account create or update.
     private function syncUserProfileForRole(
         string $identifier,
         string $role,
@@ -1232,6 +1256,7 @@ class AdminController extends Controller
         );
     }
 
+    // Removes old profile rows when a user changes role.
     private function removeStaleProfiles(string $identifier, string $keepRole): void
     {
         if ($keepRole !== 'student') {
@@ -1247,6 +1272,7 @@ class AdminController extends Controller
         }
     }
 
+    // Replaces lecturer-unit mappings from the admin assignment field.
     private function syncLecturerTeachingAssignments(string $lecturerId, string $rawAssignments): void
     {
         $assignments = $this->parseTeachingAssignments($rawAssignments);
@@ -1323,6 +1349,7 @@ class AdminController extends Controller
         );
     }
 
+    // Parses one assignment per line into unit and optional course filters.
     private function parseTeachingAssignments(string $rawAssignments)
     {
         $lines = preg_split('/\R/', $rawAssignments) ?: [];
@@ -1361,6 +1388,7 @@ class AdminController extends Controller
             ->values();
     }
 
+    // Resolves the role stored on the staff profile table.
     private function staffProfileRoleFor(string $role, string $staffRole): string
     {
         if ($role === 'staff') {
@@ -1370,6 +1398,7 @@ class AdminController extends Controller
         return 'admin';
     }
 
+    // Resolves the foreign key in roles for the selected account role.
     private function resolveUserRoleId(array $roleIds, string $role, string $staffRole): ?int
     {
         if ($role === 'staff' && isset($roleIds[$staffRole])) {
@@ -1379,6 +1408,7 @@ class AdminController extends Controller
         return $roleIds[$role] ?? null;
     }
 
+    // Produces the role label shown in emails and admin messages.
     private function userRoleLabel(string $role, string $staffRole): string
     {
         if ($role === 'staff') {
@@ -1392,6 +1422,7 @@ class AdminController extends Controller
         return Str::title($role);
     }
 
+    // Lists related records that make deleting an account unsafe.
     private function userDeletionBlockers(User $user): array
     {
         $identifier = trim((string) $user->identifier);
@@ -1420,6 +1451,7 @@ class AdminController extends Controller
         return $blockers;
     }
 
+    // Sends the welcome or reset-required email for an admin-managed account.
     private function sendUserAccountEmail(User $user, bool $forcePasswordReset = false): bool
     {
         $staffRole = $user->role === 'staff'
@@ -1453,6 +1485,7 @@ class AdminController extends Controller
         }
     }
 
+    // Chooses the best display name from profile data before falling back to account name.
     private function displayNameFor(User $user, mixed $profile): string
     {
         if ($profile) {
@@ -1479,6 +1512,7 @@ class AdminController extends Controller
         return trim((string) $user->name) !== '' ? trim((string) $user->name) : 'Unknown User';
     }
 
+    // Normalizes status text for directory filtering and display.
     private function normalizeStatus(?string $status): string
     {
         return $this->normalizeAccountStatus((string) $status);

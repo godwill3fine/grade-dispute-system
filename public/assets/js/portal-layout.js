@@ -7,10 +7,12 @@ const overlay = document.querySelector(".overlay");
 const DESKTOP_BREAKPOINT = 1100;
 const SIDEBAR_STATE_KEY = "portal-sidebar-collapsed";
 
+// Treat wider screens as desktop so sidebar collapse behavior stays predictable.
 function isDesktopViewport() {
     return window.innerWidth > DESKTOP_BREAKPOINT;
 }
 
+// Opens or closes the off-canvas sidebar on small screens.
 function setMobileSidebarOpen(isOpen) {
     if (!wrapper) {
         return;
@@ -19,6 +21,7 @@ function setMobileSidebarOpen(isOpen) {
     wrapper.classList.toggle("mobile-open", isOpen);
 }
 
+// Applies the saved light or dark theme to the portal shell.
 function applyTheme(isDarkMode) {
     document.body.classList.toggle("dark-theme", isDarkMode);
 
@@ -39,6 +42,7 @@ function readSavedSidebarState() {
     return localStorage.getItem(SIDEBAR_STATE_KEY) === "true";
 }
 
+// Restores the saved desktop sidebar state.
 function applySidebarState(isCollapsed) {
     if (!wrapper) {
         return;
@@ -87,6 +91,7 @@ if (overlay && wrapper) {
 
 const settingsDropdownWrappers = document.querySelectorAll(".settings-dropdown-wrapper");
 
+// Closes every topbar settings menu before opening a new one.
 function closeSettingsMenus() {
     settingsDropdownWrappers.forEach((wrapperEl) => {
         wrapperEl.querySelector(".settings-dropdown-menu")?.classList.remove("show");

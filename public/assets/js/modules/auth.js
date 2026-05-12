@@ -1,6 +1,7 @@
 import { apiPost } from './api.js';
 import { feedbackText } from './dom.js';
 
+// Saves the authenticated user so legacy API calls can include the identifier.
 function persistUser(data) {
     if (!data?.identifier) {
         return;
@@ -10,6 +11,7 @@ function persistUser(data) {
     window.localStorage.setItem('gds_user_role', data.role ?? '');
 }
 
+// Reads optional query values used to prefill auth forms after redirects.
 function parseUrlParam(name) {
     const params = new URLSearchParams(window.location.search);
     return (params.get(name) ?? '').trim();
@@ -39,6 +41,7 @@ function prefillForgotPasswordIdentifier() {
     }
 }
 
+// Handles the returning-user login form.
 async function handleLogin(event) {
     event.preventDefault();
 
@@ -64,6 +67,7 @@ async function handleLogin(event) {
     }
 }
 
+// Checks whether the entered university ID can start first-time signup.
 async function handleSignupIdentifier(event) {
     event.preventDefault();
 
@@ -95,6 +99,7 @@ async function handleSignupIdentifier(event) {
     }
 }
 
+// Creates the user's first password after their identifier is confirmed.
 async function handleSignupPassword(event) {
     event.preventDefault();
 
@@ -114,6 +119,7 @@ async function handleSignupPassword(event) {
     }
 }
 
+// Starts password reset by confirming the university ID.
 async function handleForgotPassword(event) {
     event.preventDefault();
 
@@ -138,6 +144,7 @@ async function handleForgotPassword(event) {
     }
 }
 
+// Sends the verification code to the account email on record.
 async function handleForgotPasswordEmail(event) {
     event.preventDefault();
 
@@ -156,6 +163,7 @@ async function handleForgotPasswordEmail(event) {
     }
 }
 
+// Verifies the six-digit password reset code.
 async function handleForgotPasswordVerify(event) {
     event.preventDefault();
 
@@ -174,6 +182,7 @@ async function handleForgotPasswordVerify(event) {
     }
 }
 
+// Stores the new password after the reset code has been verified.
 async function handleForgotPasswordReset(event) {
     event.preventDefault();
 

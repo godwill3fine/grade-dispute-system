@@ -16,15 +16,18 @@ let studentDisputeCache = [];
 let unitLookupTimer = null;
 let studentNotificationCache = [];
 
+// Encodes identifiers before placing them in route URLs.
 function encodeRouteParam(value) {
     return encodeURIComponent(String(value ?? '').trim());
 }
 
+// Reads the signed-in student's university identifier.
 function getStudentIdentifier() {
     const user = getCurrentUser();
     return user?.identifier ?? '';
 }
 
+// Loads all disputes for the signed-in student.
 async function fetchStudentDisputes() {
     const identifier = getStudentIdentifier();
     if (!identifier) {
@@ -35,6 +38,7 @@ async function fetchStudentDisputes() {
     return Array.isArray(data) ? data : [];
 }
 
+// Combines searchable dispute fields into one lowercase string.
 function normalizeSearchableText(item) {
     return [
         item.ticket_number,
@@ -47,6 +51,7 @@ function normalizeSearchableText(item) {
         .join(' ');
 }
 
+// Applies the shared status and search filters for student queues.
 function filterByStatusAndQuery(items, statusValue, queryValue) {
     const normalizedQuery = String(queryValue ?? '').trim().toLowerCase();
 
@@ -64,6 +69,7 @@ function filterByStatusAndQuery(items, statusValue, queryValue) {
     });
 }
 
+// Updates the student dashboard metric cards.
 function renderStudentMetricCards(disputes) {
     const metrics = {
         total: disputes.length,
@@ -80,6 +86,7 @@ function renderStudentMetricCards(disputes) {
     });
 }
 
+// Renders the recent dispute rows on the student dashboard.
 function renderStudentDashboardRows(disputes) {
     const body = document.getElementById('studentRecentDisputes');
     if (!body) {
@@ -110,6 +117,7 @@ function renderStudentDashboardRows(disputes) {
         .join('');
 }
 
+// Re-renders dashboard rows after the student changes filters.
 function applyStudentDashboardFilter() {
     const statusFilter = document.getElementById('studentDashboardStatusFilter');
     const searchInput = document.getElementById('studentDashboardSearch');
@@ -127,6 +135,7 @@ function applyStudentDashboardFilter() {
     renderStudentDashboardRows(filtered);
 }
 
+// Renders the full student dispute table.
 function renderStudentDisputeTable(disputes) {
     const body = document.getElementById('studentDisputesTableBody');
     if (!body) {
@@ -194,6 +203,7 @@ function toggleStudentDisputeType() {
     typeSelect.addEventListener('change', setMode);
 }
 
+// Searches units while the student types in the unit field.
 async function loadUnitLookup(query) {
     const datalist = document.getElementById('unitCodeList');
     if (!datalist) {
@@ -217,6 +227,7 @@ async function loadUnitLookup(query) {
     }
 }
 
+// Wires the unit autocomplete input and hidden unit code field.
 function initUnitLookupField() {
     const unitInput = document.getElementById('unitCodeInput');
     if (!unitInput) {
@@ -234,6 +245,7 @@ function initUnitLookupField() {
     });
 }
 
+// Submits a new dispute and shows success or validation feedback.
 async function submitStudentDisputeForm(event) {
     event.preventDefault();
 
@@ -260,6 +272,7 @@ async function submitStudentDisputeForm(event) {
     }
 }
 
+// Renders the main fields on a student dispute detail page.
 function renderStudentDetail(dispute) {
     const overview = document.getElementById('studentDisputeOverview');
     if (!overview) {
@@ -285,6 +298,7 @@ function renderStudentDetail(dispute) {
     `;
 }
 
+// Renders the dispute timeline for detail pages.
 function renderTimeline(logs, targetId) {
     const timeline = document.getElementById(targetId);
     if (!timeline) {
@@ -319,6 +333,7 @@ function renderTimeline(logs, targetId) {
     `;
 }
 
+// Renders download links for evidence files.
 function renderAttachments(items, targetId) {
     const list = document.getElementById(targetId);
     if (!list) {
@@ -342,6 +357,7 @@ function renderAttachments(items, targetId) {
         .join('');
 }
 
+// Renders the student's notification page feed.
 function renderStudentNotifications(items) {
     const feed = document.getElementById('studentNotificationFeed');
     if (!feed) {
@@ -376,6 +392,7 @@ function renderStudentNotifications(items) {
         .join('');
 }
 
+// Loads notifications for the signed-in student.
 async function fetchStudentNotifications() {
     const identifier = getStudentIdentifier();
     if (!identifier) {
@@ -386,10 +403,12 @@ async function fetchStudentNotifications() {
     return Array.isArray(data) ? data : [];
 }
 
+// Marks one student notification as read.
 async function markNotificationAsRead(id) {
     await apiPost(`/notifications/read/${id}`);
 }
 
+// Handles student notification clicks with event delegation.
 function registerStudentNotificationClicks() {
     const feed = document.getElementById('studentNotificationFeed');
     if (!feed) {
@@ -424,6 +443,7 @@ function registerStudentNotificationClicks() {
     });
 }
 
+// Marks every cached student notification as read.
 function registerMarkAllAsRead() {
     const button = document.getElementById('studentMarkAllRead');
     if (!button) {
@@ -452,6 +472,7 @@ function registerMarkAllAsRead() {
     });
 }
 
+// Initializes the student dashboard page.
 export async function initStudentDashboard() {
     const statusFilter = document.getElementById('studentDashboardStatusFilter');
     const searchInput = document.getElementById('studentDashboardSearch');
@@ -468,6 +489,7 @@ export async function initStudentDashboard() {
     }
 }
 
+// Initializes the student dispute submission page.
 export function initStudentSubmitDispute() {
     toggleStudentDisputeType();
     initUnitLookupField();
@@ -476,6 +498,7 @@ export function initStudentSubmitDispute() {
     form?.addEventListener('submit', submitStudentDisputeForm);
 }
 
+// Initializes the student ticket list page.
 export async function initStudentTickets() {
     const filter = document.getElementById('studentStatusFilter');
     const search = document.getElementById('studentTicketsSearch');
@@ -491,6 +514,7 @@ export async function initStudentTickets() {
     }
 }
 
+// Initializes the student notification center.
 export async function initStudentNotifications() {
     registerStudentNotificationClicks();
     registerMarkAllAsRead();
@@ -504,6 +528,7 @@ export async function initStudentNotifications() {
     }
 }
 
+// Initializes the student dispute detail page.
 export async function initStudentDisputeDetail() {
     const id = disputeId();
     const identifier = getStudentIdentifier();

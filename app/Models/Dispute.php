@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Dispute extends Model
 {
+    // These temporary values let the creator customize the first audit log entry.
     protected ?string $creationPerformedBy = null;
 
     protected ?string $creationLogAction = null;
@@ -67,6 +68,7 @@ class Dispute extends Model
 
     public function useCreationLogContext(?string $performedBy, ?string $action = null, ?string $comment = null): static
     {
+        // Store creation log metadata until the model is saved.
         $this->creationPerformedBy = is_string($performedBy) ? trim($performedBy) : null;
         $this->creationLogAction = is_string($action) ? trim($action) : null;
         $this->creationLogComment = is_string($comment) ? trim($comment) : null;
@@ -79,6 +81,7 @@ class Dispute extends Model
         parent::boot();
 
         static::creating(function ($dispute) {
+            // Generate readable ticket numbers when the caller has not supplied one.
             if (! empty($dispute->ticket_number)) {
                 return;
             }
@@ -97,6 +100,7 @@ class Dispute extends Model
             $dispute->ticket_number = 'DSP-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
         });
         static::created(function ($dispute) {
+            // Every dispute starts with a timeline entry for auditability.
             DisputeLog::create([
                 'dispute_id' => $dispute->id,
                 'action' => $dispute->creationLogAction ?: 'Dispute Submitted',

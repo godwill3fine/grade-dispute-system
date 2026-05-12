@@ -31,11 +31,13 @@ import {
     initStudentTickets,
 } from './modules/student.js';
 
+// Clears the browser-side identity cache when Laravel logs the user out.
 function clearLocalSession() {
     window.localStorage.removeItem('gds_user_identifier');
     window.localStorage.removeItem('gds_user_role');
 }
 
+// Ensures every logout form also removes the cached portal identity.
 function bindLogoutForms() {
     document.querySelectorAll('form[action="/logout"]').forEach((form) => {
         form.addEventListener('submit', () => {
@@ -44,6 +46,7 @@ function bindLogoutForms() {
     });
 }
 
+// Chooses the correct page module based on the body data-page value.
 async function bootstrap() {
     const currentPage = pageId();
     bindLogoutForms();

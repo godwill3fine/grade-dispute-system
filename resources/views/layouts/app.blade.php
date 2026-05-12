@@ -3,6 +3,7 @@
 @section('body_class', 'gd-app-body')
 
 @section('body')
+    {{-- Signed-in pages share the responsive sidebar, topbar, content slot, and toast region. --}}
     <div class="wrapper">
         <div class="overlay"></div>
         @include('partials.sidebar')

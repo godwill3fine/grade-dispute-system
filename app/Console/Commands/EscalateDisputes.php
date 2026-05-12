@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Schema;
 #[Description('Escalate stale disputes to HOD or Admin based on inactivity thresholds')]
 class EscalateDisputes extends Command
 {
+    // Defaults are used when admin settings have not been configured yet.
     private const DEFAULT_HOD_DAYS = 3;
     private const DEFAULT_ADMIN_DAYS = 6;
 
@@ -34,8 +35,10 @@ class EscalateDisputes extends Command
 
         /** @var EloquentCollection<int, Dispute> $disputes */
         $disputes = Dispute::whereIn('status', ['pending', 'under_review', 'escalated'])->get();
+        // Read thresholds from settings so admins can tune escalation timing.
         $hodDays = $this->getIntSetting('escalation_days_hod', self::DEFAULT_HOD_DAYS);
         $adminDays = $this->getIntSetting('escalation_days_admin', self::DEFAULT_ADMIN_DAYS);
+        // Column checks keep the command compatible while migrations are still catching up.
         $hasEscalationLevel = Schema::hasColumn('disputes', 'escalation_level');
         $hasEscalatedAt = Schema::hasColumn('disputes', 'escalated_at');
         $hasEscalationReason = Schema::hasColumn('disputes', 'escalation_reason');
@@ -48,7 +51,7 @@ class EscalateDisputes extends Command
                 true
             );
 
-            // Escalate Lecturer -> HOD
+            // Move stale lecturer-owned tickets to the HOD queue.
             if (($dispute->status == 'pending' || $dispute->status == 'under_review') && $days >= $hodDays) {
                 $previousStatus = $dispute->status;
 
@@ -98,7 +101,7 @@ class EscalateDisputes extends Command
                 }
             }
 
-            // Escalate HOD -> Admin
+            // Move stale HOD tickets to the admin queue.
             elseif ($dispute->status == 'escalated' && $dispute->assigned_role == 'hod' && $days >= $adminDays) {
                 $previousStatus = $dispute->status;
 
@@ -156,6 +159,7 @@ class EscalateDisputes extends Command
 
     private function getIntSetting(string $key, int $default): int
     {
+        // Settings are stored as strings, so validate before converting.
         $rawValue = SystemSetting::where('setting_key', $key)->value('setting_value');
 
         if (! is_numeric($rawValue)) {

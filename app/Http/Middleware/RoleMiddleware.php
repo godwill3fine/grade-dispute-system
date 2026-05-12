@@ -16,6 +16,7 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, ...$roles)
     {
+        // Resolve the acting user from the session, headers, form body, or route parameters.
         $identifier = $this->resolveIdentifier($request);
 
         if (! $identifier) {
@@ -32,6 +33,7 @@ class RoleMiddleware
             return response()->json(['error' => 'Access denied'], 403);
         }
 
+        // Controllers read these attributes to authorize role-specific actions.
         $request->attributes->set('actor_identifier', $user->identifier);
         $request->attributes->set('actor_role', $user->role);
         $request->attributes->set('actor_user_id', $user->id);
@@ -41,6 +43,7 @@ class RoleMiddleware
 
     private function resolveIdentifier(Request $request): ?string
     {
+        // Accept several legacy identifier names so older forms and APIs still work.
         $candidateIdentifiers = [
             $request->user()?->identifier,
             $request->header('X-User-Identifier'),

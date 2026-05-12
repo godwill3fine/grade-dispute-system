@@ -14,6 +14,7 @@ const PRIORITY_CLASS_MAP = {
     high: 'priority-high',
 };
 
+// Reads the current user from server-rendered config, then falls back to local storage.
 export function getCurrentUser() {
     const cfg = window.GDS_CONFIG?.user ?? null;
     if (cfg?.identifier) {
@@ -28,10 +29,12 @@ export function getCurrentUser() {
         : null;
 }
 
+// Identifies which page module should run for the current Blade view.
 export function pageId() {
     return document.body?.dataset?.page ?? '';
 }
 
+// Reads the active dispute ID from the body dataset.
 export function disputeId() {
     const id = document.body?.dataset?.disputeId;
     if (!id) {
@@ -42,6 +45,7 @@ export function disputeId() {
     return Number.isNaN(parsed) ? null : parsed;
 }
 
+// Formats API timestamps for table and timeline display.
 export function formatDate(value) {
     if (!value) {
         return '-';
@@ -55,6 +59,7 @@ export function formatDate(value) {
     return dt.toLocaleString();
 }
 
+// Escapes dynamic strings before inserting them into template literals.
 export function escapeHtml(input) {
     return String(input ?? '')
         .replace(/&/g, '&amp;')
@@ -64,6 +69,7 @@ export function escapeHtml(input) {
         .replace(/'/g, '&#039;');
 }
 
+// Builds the reusable status pill HTML.
 export function statusBadge(status) {
     const key = String(status ?? '').toLowerCase();
     const text = key === ''
@@ -73,12 +79,14 @@ export function statusBadge(status) {
     return `<span class="status-pill ${cls}">${escapeHtml(text)}</span>`;
 }
 
+// Builds the reusable priority pill HTML.
 export function priorityBadge(priority) {
     const key = String(priority ?? 'medium').toLowerCase();
     const cls = PRIORITY_CLASS_MAP[key] ?? 'priority-medium';
     return `<span class="priority-pill ${cls}">${escapeHtml(key)}</span>`;
 }
 
+// Shows a short inline alert near the top of the app shell.
 export function showAlert(message, type = 'danger') {
     const el = document.getElementById('globalAlert');
     if (!el) {
@@ -94,6 +102,7 @@ export function showAlert(message, type = 'danger') {
     }, 4500);
 }
 
+// Shows a Bootstrap toast for non-blocking feedback.
 export function showToast(message, tone = 'primary') {
     const region = document.getElementById('toastRegion');
     if (!region) {
@@ -120,6 +129,7 @@ export function showToast(message, tone = 'primary') {
     });
 }
 
+// Writes form feedback into a known helper element.
 export function feedbackText(selector, message, ok = false) {
     const el = document.querySelector(selector);
     if (!el) {
@@ -131,6 +141,7 @@ export function feedbackText(selector, message, ok = false) {
     el.classList.toggle('text-danger', !ok);
 }
 
+// Creates a table row for empty states.
 export function emptyState(message, colSpan = 5) {
     return `<tr><td colspan="${colSpan}" class="text-center text-muted py-4">${escapeHtml(message)}</td></tr>`;
 }

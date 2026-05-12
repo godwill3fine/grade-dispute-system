@@ -9,6 +9,7 @@ class ActivityLogService
 {
     public static function log($userId, $action, $entityType = null, $entityId = null, $description = null)
     {
+        // Accept either a numeric user ID or a portal identifier from the caller.
         $resolvedUserId = self::resolveUserId($userId);
 
         ActivityLog::create([
@@ -22,6 +23,7 @@ class ActivityLogService
 
     private static function resolveUserId($userId): ?int
     {
+        // System events intentionally keep user_id null.
         if ($userId === null) {
             return null;
         }

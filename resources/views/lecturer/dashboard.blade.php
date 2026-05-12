@@ -7,6 +7,7 @@
 @section('content')
 @include('lecturer.partials.staff-review-banner')
 
+{{-- JavaScript fills these metric cards from the reviewer dispute queue API. --}}
 <div class="stats-container stats-grid-4" id="lecturerMetricCards">
     <div class="stat-card">
         <span class="material-symbols-outlined stat-icon">description</span>
@@ -30,6 +31,7 @@
     </div>
 </div>
 
+{{-- Filters and actions control the reviewer dashboard table below. --}}
 <div class="table-section-header">
     <h2>{{ ($portalUserMeta['is_staff_reviewer'] ?? false) ? 'Disputes requiring higher-level review' : 'Disputes requiring action' }}</h2>
     <div class="header-actions">
@@ -60,6 +62,7 @@
 
 <div class="course-filters" id="lecturerDashboardCourseFilters"></div>
 
+{{-- The initial row is replaced once the dashboard module loads reviewer disputes. --}}
 <div class="table-container">
     <div class="table-responsive">
         <table class="tickets-table">

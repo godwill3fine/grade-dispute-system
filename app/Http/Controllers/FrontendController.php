@@ -22,6 +22,7 @@ use Illuminate\View\View;
 
 class FrontendController extends Controller
 {
+    // Sends visitors to the right starting page based on their auth state.
     public function landing(): RedirectResponse
     {
         if (Auth::check()) {
@@ -31,6 +32,7 @@ class FrontendController extends Controller
         return redirect()->route('portal.auth');
     }
 
+    // Shows the login page unless the user is already signed in.
     public function authPage(): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -40,6 +42,7 @@ class FrontendController extends Controller
         return view('auth.entry');
     }
 
+    // Starts first-time account setup by asking for a university identifier.
     public function signupPage(): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -49,6 +52,7 @@ class FrontendController extends Controller
         return view('auth.signup');
     }
 
+    // Shows the password setup form after identifier and role are known.
     public function signupPasswordPage(Request $request): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -70,6 +74,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Starts the guided password reset flow.
     public function forgotPasswordPage(): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -81,6 +86,7 @@ class FrontendController extends Controller
         return view('auth.forgot-password');
     }
 
+    // Collects the email address tied to the verified reset account.
     public function forgotPasswordEmailPage(Request $request): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -101,6 +107,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Shows the verification code page after a reset code is sent.
     public function forgotPasswordVerifyPage(Request $request): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -123,6 +130,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Shows the final new-password page after code verification.
     public function forgotPasswordResetPage(Request $request): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -144,11 +152,13 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Routes authenticated users to the dashboard for their role.
     public function appHome(): RedirectResponse
     {
         return $this->redirectByRole(Auth::user()->role);
     }
 
+    // Renders the student dashboard with student identity metadata.
     public function studentDashboard(): View
     {
         $this->ensureRole('student');
@@ -156,6 +166,7 @@ class FrontendController extends Controller
         return view('student.dashboard');
     }
 
+    // Renders the student dispute submission form.
     public function studentSubmitDispute(): View
     {
         $this->ensureRole('student');
@@ -167,6 +178,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the student's ticket queue.
     public function studentTickets(): View
     {
         $this->ensureRole('student');
@@ -174,6 +186,7 @@ class FrontendController extends Controller
         return view('student.tickets');
     }
 
+    // Renders the student notification center.
     public function studentNotifications(): View
     {
         $this->ensureRole('student');
@@ -181,6 +194,7 @@ class FrontendController extends Controller
         return view('student.notifications');
     }
 
+    // Renders profile data from the student table.
     public function studentProfile(): View
     {
         $this->ensureRole('student');
@@ -188,6 +202,7 @@ class FrontendController extends Controller
         return view('student.profile', $this->buildStudentPortalContext());
     }
 
+    // Renders student account settings.
     public function studentSettings(): View
     {
         $this->ensureRole('student');
@@ -195,11 +210,13 @@ class FrontendController extends Controller
         return view('student.account-settings', $this->buildStudentPortalContext());
     }
 
+    // Keeps the legacy student disputes page route working.
     public function studentDisputes(): View
     {
         return $this->studentTickets();
     }
 
+    // Renders one dispute detail page for the owning student.
     public function studentDisputeDetail(int $id): View
     {
         $this->ensureRole('student');
@@ -209,6 +226,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the reviewer dashboard for lecturers and staff reviewers.
     public function lecturerDashboard(): View
     {
         $this->ensureRole('lecturer', 'staff');
@@ -216,6 +234,7 @@ class FrontendController extends Controller
         return view('lecturer.dashboard', $this->buildLecturerPortalContext());
     }
 
+    // Renders the reviewer queue page.
     public function lecturerDisputes(): View
     {
         $this->ensureRole('lecturer', 'staff');
@@ -223,6 +242,7 @@ class FrontendController extends Controller
         return view('lecturer.disputes', $this->buildLecturerPortalContext());
     }
 
+    // Renders closed or escalated reviewer history.
     public function lecturerHistory(): View
     {
         $this->ensureRole('lecturer', 'staff');
@@ -230,6 +250,7 @@ class FrontendController extends Controller
         return view('lecturer.history', $this->buildLecturerPortalContext());
     }
 
+    // Renders one dispute detail page for a reviewer.
     public function lecturerDisputeDetail(int $id): View
     {
         $this->ensureRole('lecturer', 'staff');
@@ -239,6 +260,7 @@ class FrontendController extends Controller
         ] + $this->buildLecturerPortalContext());
     }
 
+    // Renders the admin dashboard.
     public function adminDashboard(): View
     {
         $this->ensureRole('admin');
@@ -246,6 +268,7 @@ class FrontendController extends Controller
         return view('admin.dashboard');
     }
 
+    // Renders the admin dispute worklist with filter metadata.
     public function adminDisputes(): View
     {
         $this->ensureRole('admin');
@@ -278,6 +301,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the admin ticket creation page.
     public function adminCreateTicket(): View
     {
         $this->ensureRole('admin');
@@ -287,6 +311,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the admin ticket management page for one dispute.
     public function adminManageTicket(int $id): View
     {
         $this->ensureRole('admin');
@@ -300,6 +325,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the admin user directory.
     public function adminUsers(): View
     {
         $this->ensureRole('admin');
@@ -307,6 +333,7 @@ class FrontendController extends Controller
         return view('admin.users');
     }
 
+    // Renders the admin user creation form.
     public function adminUserCreate(): View
     {
         $this->ensureRole('admin');
@@ -316,6 +343,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the admin user edit form for a selected account.
     public function adminUserEdit(string $identifier): View
     {
         $this->ensureRole('admin');
@@ -333,6 +361,7 @@ class FrontendController extends Controller
         ]);
     }
 
+    // Renders the reporting page.
     public function adminReports(): View
     {
         $this->ensureRole('admin');
@@ -340,6 +369,7 @@ class FrontendController extends Controller
         return view('admin.reports');
     }
 
+    // Renders the escalations page.
     public function adminEscalations(): View
     {
         $this->ensureRole('admin');
@@ -347,6 +377,7 @@ class FrontendController extends Controller
         return view('admin.escalations');
     }
 
+    // Renders system settings.
     public function adminSettings(): View
     {
         $this->ensureRole('admin');
@@ -354,6 +385,7 @@ class FrontendController extends Controller
         return view('admin.settings');
     }
 
+    // Renders the admin activity log page.
     public function adminActivity(): View
     {
         $this->ensureRole('admin');
@@ -361,6 +393,7 @@ class FrontendController extends Controller
         return view('admin.activity');
     }
 
+    // Blocks a page when the signed-in user does not have an allowed role.
     private function ensureRole(string ...$roles): void
     {
         $user = Auth::user();
@@ -370,6 +403,7 @@ class FrontendController extends Controller
         }
     }
 
+    // Builds common student metadata consumed by Blade and JavaScript.
     private function buildStudentPortalContext(): array
     {
         /** @var User|null $user */
@@ -405,6 +439,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Builds common reviewer metadata consumed by Blade and JavaScript.
     private function buildLecturerPortalContext(): array
     {
         $user = Auth::user();
@@ -428,6 +463,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Collects every display and routing field needed by the admin manage-ticket page.
     private function buildAdminManageTicketContext(Dispute $dispute): array
     {
         /** @var User|null $currentAdmin */
@@ -1057,6 +1093,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Picks the staff reviewer that best matches role and department.
     private function preferredStaffRouteReviewer($staffReviewers, string $role, string $departmentName): ?Staff
     {
         $matches = $staffReviewers
@@ -1082,6 +1119,7 @@ class FrontendController extends Controller
         return $firstMatch instanceof Staff ? $firstMatch : null;
     }
 
+    // Converts the stored assignment into the value used by the admin routing select.
     private function adminRouteDestinationValue(Dispute $dispute): string
     {
         $assignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
@@ -1101,6 +1139,7 @@ class FrontendController extends Controller
         };
     }
 
+    // Builds departments, units, and default terms for admin ticket intake.
     private function buildAdminCreateTicketMeta(): array
     {
         $departments = Department::query()
@@ -1136,6 +1175,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Generates the current set of academic terms for intake forms.
     private function buildAcademicTerms(): array
     {
         $year = (int) now('Africa/Nairobi')->format('Y');
@@ -1148,6 +1188,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Builds role, department, and assignment options for admin user forms.
     private function adminUserFormMeta(?string $selectedDepartment = null): array
     {
         $departments = Department::query()
@@ -1173,6 +1214,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Combines account and profile data for the admin edit form.
     private function buildAdminUserEditContext(User $user): array
     {
         $profile = match ($user->role) {
@@ -1285,6 +1327,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Chooses the landing route for a signed-in role.
     private function redirectByRole(string $role): RedirectResponse
     {
         if ($role === 'student') {
@@ -1306,6 +1349,7 @@ class FrontendController extends Controller
             ->with('auth_error', 'Your role is not yet supported in this web interface.');
     }
 
+    // Masks email addresses when showing password reset hints.
     private function maskEmail(string $email): string
     {
         $normalized = trim($email);
@@ -1325,6 +1369,7 @@ class FrontendController extends Controller
         return $maskedLocal.'@'.$domain;
     }
 
+    // Formats timestamps consistently for portal screens.
     private function formatPortalTimestamp(?DateTimeInterface $timestamp, string $fallback = 'Not available'): string
     {
         if (!$timestamp) {
@@ -1336,6 +1381,7 @@ class FrontendController extends Controller
             ->format('Y-m-d h:i A');
     }
 
+    // Picks the best available name for admin user lists and forms.
     private function adminUserDisplayName(User $user, mixed $profile): string
     {
         if ($profile) {
@@ -1357,6 +1403,7 @@ class FrontendController extends Controller
         return trim((string) $user->name) !== '' ? trim((string) $user->name) : 'Unknown User';
     }
 
+    // Splits a single display name into first and last name form fields.
     private function splitDisplayName(string $name): array
     {
         $normalized = trim((string) preg_replace('/\s+/', ' ', $name));
@@ -1372,6 +1419,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Normalizes account status labels for admin UI state.
     private function normalizeAdminUserStatus(?string $status): string
     {
         $normalized = Str::lower(trim((string) $status));
@@ -1393,6 +1441,7 @@ class FrontendController extends Controller
         return Str::upper(trim((string) $course));
     }
 
+    // Resolves display details for the actor who created or updated a dispute.
     private function resolveDisputeActorInfo(
         string $identifier,
         mixed $users,
@@ -1497,6 +1546,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Creates the small person summary cards shown on ticket detail pages.
     private function buildTicketPersonCard(
         array $actor,
         string $meta,
@@ -1516,6 +1566,7 @@ class FrontendController extends Controller
         ];
     }
 
+    // Converts stored dispute status keys into readable labels.
     private function formatDisputeStatusLabel(?string $status): string
     {
         $normalized = Str::lower(trim((string) $status));
@@ -1531,6 +1582,7 @@ class FrontendController extends Controller
         };
     }
 
+    // Converts stored priority keys into readable labels.
     private function formatDisputePriorityLabel(?string $priority): string
     {
         $normalized = Str::lower(trim((string) $priority));
@@ -1538,6 +1590,7 @@ class FrontendController extends Controller
         return $normalized !== '' ? Str::title($normalized) : 'Medium';
     }
 
+    // Labels the issue type using either the assignment name or dispute type.
     private function disputeIssueTypeLabel(Dispute $dispute): string
     {
         $title = trim((string) ($dispute->title ?? ''));
@@ -1552,6 +1605,7 @@ class FrontendController extends Controller
         };
     }
 
+    // Converts assignment role keys into labels for ticket pages.
     private function ticketRoleLabel(string $role): string
     {
         $normalized = trim($role);
@@ -1559,6 +1613,7 @@ class FrontendController extends Controller
         return Str::upper($normalized !== '' ? str_replace('_', ' ', $normalized) : 'user');
     }
 
+    // Chooses the Material icon for the assigned reviewer role.
     private function ticketRoleIcon(string $role): string
     {
         return match (Str::lower(trim($role))) {
@@ -1569,6 +1624,7 @@ class FrontendController extends Controller
         };
     }
 
+    // Chooses the badge color class for the assigned reviewer role.
     private function ticketRoleBadgeClass(string $role): string
     {
         return in_array(Str::lower(trim($role)), ['staff', 'admin', 'exam_officer', 'hod'], true)
@@ -1576,6 +1632,7 @@ class FrontendController extends Controller
             : 'role-outline';
     }
 
+    // Formats dates without time when the page only needs the day.
     private function formatPortalDate(?DateTimeInterface $timestamp, string $fallback = 'Not available'): string
     {
         if (! $timestamp) {

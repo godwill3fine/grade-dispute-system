@@ -36,6 +36,7 @@ const DEFAULT_ADMIN_SETTINGS = {
     require_grade_adjustment_justification: '1',
 };
 
+// Disables a button while a long-running admin action is in progress.
 function setButtonBusyState(button, busy, busyLabel = 'Working...') {
     if (!button) {
         return;
@@ -49,6 +50,7 @@ function setButtonBusyState(button, busy, busyLabel = 'Working...') {
     button.innerHTML = busy ? busyLabel : button.dataset.defaultHtml;
 }
 
+// Keeps user-management success messages across redirects.
 function persistAdminUsersFlash(payload) {
     try {
         window.sessionStorage.setItem(ADMIN_USERS_FLASH_KEY, JSON.stringify(payload ?? {}));
@@ -57,6 +59,7 @@ function persistAdminUsersFlash(payload) {
     }
 }
 
+// Reads and clears one stored user-management flash message.
 function consumeAdminUsersFlash() {
     try {
         const stored = window.sessionStorage.getItem(ADMIN_USERS_FLASH_KEY);
@@ -71,6 +74,7 @@ function consumeAdminUsersFlash() {
     }
 }
 
+// Shows any user-management flash message after the page loads.
 function maybeApplyAdminUsersFlash() {
     const flash = consumeAdminUsersFlash();
     if (!flash || typeof flash !== 'object') {
@@ -86,6 +90,7 @@ function maybeApplyAdminUsersFlash() {
     }
 }
 
+// Keeps dispute-management success messages across redirects.
 function persistAdminDisputesFlash(payload) {
     try {
         window.sessionStorage.setItem(ADMIN_DISPUTES_FLASH_KEY, JSON.stringify(payload ?? {}));
@@ -94,6 +99,7 @@ function persistAdminDisputesFlash(payload) {
     }
 }
 
+// Reads and clears one stored dispute-management flash message.
 function consumeAdminDisputesFlash() {
     try {
         const stored = window.sessionStorage.getItem(ADMIN_DISPUTES_FLASH_KEY);
@@ -108,6 +114,7 @@ function consumeAdminDisputesFlash() {
     }
 }
 
+// Shows any dispute-management flash message after the page loads.
 function maybeApplyAdminDisputesFlash() {
     const flash = consumeAdminDisputesFlash();
     if (!flash || typeof flash !== 'object') {
@@ -123,6 +130,7 @@ function maybeApplyAdminDisputesFlash() {
     }
 }
 
+// Pulls the clearest validation message out of an API error object.
 function firstErrorMessage(error, fallback) {
     const messages = Object.values(error?.errors ?? {})
         .flat()
@@ -136,12 +144,14 @@ function firstErrorMessage(error, fallback) {
     return error?.message ?? fallback;
 }
 
+// Uploads the selected CSV file to the admin import endpoint.
 async function submitAdminUserImport(file) {
     const formData = new FormData();
     formData.append('import_file', file);
     return apiPost('/admin/users/import', formData);
 }
 
+// Builds extra guidance for the admin after a CSV import.
 function adminUserImportFollowUpMessage(response) {
     const summary = response?.summary ?? {};
 
@@ -156,6 +166,7 @@ function adminUserImportFollowUpMessage(response) {
     return followUp;
 }
 
+// Replaces an existing Chart.js chart before drawing a new one.
 function maybeRenderChart(id, config) {
     const canvas = document.getElementById(id);
     if (!canvas || !window.Chart) {
@@ -171,6 +182,7 @@ function maybeRenderChart(id, config) {
     new window.Chart(canvas, config);
 }
 
+// Updates the admin dashboard metric cards.
 function setDashboardMetrics(data) {
     Object.entries(data ?? {}).forEach(([key, value]) => {
         const target = document.querySelector(`[data-metric="${key}"]`);
@@ -180,6 +192,7 @@ function setDashboardMetrics(data) {
     });
 }
 
+// Updates alert cards for overdue and escalated work.
 function setAlertMetrics(data) {
     Object.entries(data ?? {}).forEach(([key, value]) => {
         const target = document.querySelector(`[data-alert="${key}"]`);
@@ -189,6 +202,7 @@ function setAlertMetrics(data) {
     });
 }
 
+// Reads dispute metadata embedded by Blade for filters and labels.
 function readAdminDisputeMeta() {
     const source = document.getElementById('adminDisputeMeta');
     if (!source) {
@@ -206,6 +220,7 @@ function readAdminDisputeMeta() {
     }
 }
 
+// Reads the ticket creation metadata embedded by Blade.
 function readAdminCreateTicketMeta() {
     const source = document.getElementById('adminCreateTicketMeta');
     if (!source) {
@@ -292,6 +307,7 @@ function statusBadgeClassic(status) {
     return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
 }
 
+// Applies admin dispute filters, search, and sorting to the cached rows.
 function filteredAdminDisputes() {
     const searchValue = String(document.getElementById('adminDisputeSearch')?.value ?? '').trim().toLowerCase();
     const statusValue = String(document.getElementById('adminDisputeStatusFilter')?.value ?? '').trim().toLowerCase();
@@ -348,6 +364,7 @@ function filteredAdminDisputes() {
     return sorted;
 }
 
+// Renders pagination controls for the admin dispute table.
 function renderAdminDisputePagination(totalRows) {
     const container = document.getElementById('adminDisputePaginationControls');
     if (!container) {
@@ -388,6 +405,7 @@ function renderAdminDisputePagination(totalRows) {
     ].join('');
 }
 
+// Shows the current dispute result range below the table.
 function renderAdminDisputePaginationInfo(totalRows) {
     const info = document.getElementById('adminDisputePaginationInfo');
     if (!info) {
@@ -404,6 +422,7 @@ function renderAdminDisputePaginationInfo(totalRows) {
     info.textContent = `Showing ${start} to ${end} of ${totalRows} total tickets`;
 }
 
+// Formats timestamps as compact relative time for admin tables.
 function formatRelativeTime(value) {
     if (!value) {
         return '-';
@@ -434,6 +453,7 @@ function formatRelativeTime(value) {
     return formatDate(value);
 }
 
+// Calculates how long a dispute took, or has taken, in days.
 function resolutionDaysFor(item) {
     const created = new Date(item?.created_at ?? '').getTime();
     const resolved = new Date(item?.resolved_at ?? item?.updated_at ?? '').getTime();
@@ -453,6 +473,7 @@ function dateKey(date) {
     ].join('-');
 }
 
+// Groups dispute rows into the time buckets used by the trend chart.
 function buildTrendSeries(rows, range = 'week') {
     const disputes = Array.isArray(rows) ? rows : [];
     const now = new Date();
@@ -521,6 +542,7 @@ function buildTrendSeries(rows, range = 'week') {
     };
 }
 
+// Draws the admin dispute trend chart.
 function renderAdminTrendChart(rows, range = 'week') {
     const canvas = document.getElementById('adminTrendChart');
     if (!canvas || !window.Chart) {
@@ -584,6 +606,7 @@ function renderAdminTrendChart(rows, range = 'week') {
     });
 }
 
+// Connects trend-range tabs to the chart renderer.
 function bindAdminTrendTabs(rows) {
     const buttons = document.querySelectorAll('[data-trend-range]');
     if (!buttons.length) {
@@ -601,6 +624,7 @@ function bindAdminTrendTabs(rows) {
     });
 }
 
+// Renders unit workload and volume summaries for the dashboard.
 function renderAdminUnitSummary(rows, unitReports) {
     const body = document.getElementById('adminUnitSummaryTableBody');
     if (!body) {
@@ -683,6 +707,7 @@ function renderAdminUnitSummary(rows, unitReports) {
         .join('');
 }
 
+// Renders the current page of admin dispute rows.
 function renderAdminDisputesRows(rows) {
     const body = document.getElementById('adminDisputesTableBody');
     if (!body) {
@@ -725,6 +750,7 @@ function renderAdminDisputesRows(rows) {
         .join('');
 }
 
+// Updates escalations page metric cards.
 function setEscalationMetrics(rows) {
     const safeRows = Array.isArray(rows) ? rows : [];
     const metrics = {
@@ -745,6 +771,7 @@ function setEscalationMetrics(rows) {
     });
 }
 
+// Builds the role filter from escalation data.
 function populateEscalationRoleFilter(rows) {
     const select = document.getElementById('adminEscalationRoleFilter');
     if (!select) {
@@ -763,6 +790,7 @@ function populateEscalationRoleFilter(rows) {
     ].join('');
 }
 
+// Chooses the best available explanation for an escalated ticket.
 function escalationReasonText(item) {
     const explicitReason = String(item.escalation_reason ?? '').trim();
     if (explicitReason) {
@@ -791,6 +819,7 @@ function escalationReasonText(item) {
     return 'Escalated dispute';
 }
 
+// Derives status tokens used by escalation badges.
 function escalationStatusTokens(item) {
     const status = String(item.status ?? '').toLowerCase();
     const assignedRole = String(item.assigned_role ?? '').toLowerCase();
@@ -818,6 +847,7 @@ function escalationStatusTokens(item) {
     return ['ESCALATED', 'REVIEW'];
 }
 
+// Renders escalated tickets for admin review.
 function renderAdminEscalationRows(rows) {
     const body = document.getElementById('adminEscalationsTableBody');
     if (!body) {
@@ -871,6 +901,7 @@ function renderAdminEscalationRows(rows) {
         .join('');
 }
 
+// Applies role and keyword filters to escalations.
 function filterAdminEscalations() {
     const searchInput = document.getElementById('adminEscalationSearch');
     const roleFilter = document.getElementById('adminEscalationRoleFilter');
@@ -908,6 +939,7 @@ function filterAdminEscalations() {
     return filtered;
 }
 
+// Downloads the filtered escalation list as CSV.
 function exportAdminEscalations(rows) {
     if (!Array.isArray(rows) || !rows.length) {
         showToast('No escalation records to export.', 'warning');
@@ -941,6 +973,7 @@ function exportAdminEscalations(rows) {
     window.URL.revokeObjectURL(url);
 }
 
+// Moves the admin dispute table to a requested page.
 function loadAdminDisputePage(page = 1) {
     adminDisputePage = page;
     const filtered = filteredAdminDisputes();
@@ -952,6 +985,7 @@ function loadAdminDisputePage(page = 1) {
     renderAdminDisputesRows(pageRows);
 }
 
+// Renders the unit report table.
 function renderUnitReports(rows) {
     const body = document.getElementById('unitReportTable');
     if (!body) {
@@ -998,6 +1032,7 @@ function lecturerReportName(row) {
     return String(row?.assigned_to ?? '-').trim() || '-';
 }
 
+// Renders the lecturer workload report table.
 function renderLecturerReports(rows) {
     const body = document.getElementById('lecturerReportTable');
     if (!body) {
@@ -1073,6 +1108,7 @@ function booleanSettingValue(value, fallback = true) {
     return !['0', 'false', 'no', 'off'].includes(normalized);
 }
 
+// Fills the settings form from saved values or defaults.
 function renderAdminSettingsForm(rows) {
     const form = document.getElementById('adminSettingsForm');
     if (!form) {
@@ -1099,6 +1135,7 @@ function renderAdminSettingsForm(rows) {
     });
 }
 
+// Converts settings form controls into the API payload.
 function collectAdminSettingsPayload() {
     const form = document.getElementById('adminSettingsForm');
     if (!form) {
@@ -1134,6 +1171,7 @@ function bindAdminSettingsDangerZone() {
     });
 }
 
+// Renders admin activity log rows.
 function renderActivity(rows) {
     const body = document.getElementById('adminActivityTableBody');
     if (!body) {
@@ -1216,6 +1254,7 @@ function renderAdminActivityPaginationInfo(totalRows) {
     info.textContent = `Showing ${start} to ${end} of ${totalRows} total records`;
 }
 
+// Moves the admin activity table to a requested page.
 function loadAdminActivityPage(page = 1) {
     const rows = Array.isArray(adminActivityCache) ? adminActivityCache : [];
     const totalPages = Math.max(1, Math.ceil(rows.length / ADMIN_ACTIVITY_PAGE_SIZE));
@@ -1229,6 +1268,7 @@ function loadAdminActivityPage(page = 1) {
     renderAdminActivityPagination(rows.length);
 }
 
+// Renders the recent activity preview on the dashboard.
 function renderDashboardActivity(rows) {
     const container = document.getElementById('adminRecentActivity');
     if (!container) {
@@ -1258,6 +1298,7 @@ function renderDashboardActivity(rows) {
         .join('');
 }
 
+// Initializes the admin dashboard page.
 export async function initAdminDashboard() {
     try {
         const [metrics, alerts, disputes, units, activity] = await Promise.all([
@@ -1279,6 +1320,7 @@ export async function initAdminDashboard() {
     }
 }
 
+// Initializes the admin dispute worklist page.
 export async function initAdminDisputes() {
     adminDisputeMeta = readAdminDisputeMeta();
     maybeApplyAdminDisputesFlash();
@@ -1409,6 +1451,7 @@ function userStatusIndicator(status) {
     return `<div class="status-indicator"><span class="status-dot ${dotClass}"></span> ${label}</div>`;
 }
 
+// Applies role, status, and keyword filters to cached users.
 function filteredAdminUsers() {
     const searchValue = String(document.getElementById('adminUserSearch')?.value ?? '').trim().toLowerCase();
     const roleValue = String(document.getElementById('adminUserRoleFilter')?.value ?? '').trim().toLowerCase();
@@ -1443,6 +1486,7 @@ function filteredAdminUsers() {
     });
 }
 
+// Builds the user-role filter from directory data.
 function populateAdminUserRoleFilter(rows) {
     const select = document.getElementById('adminUserRoleFilter');
     if (!select) {
@@ -1464,6 +1508,7 @@ function populateAdminUserRoleFilter(rows) {
     }
 }
 
+// Renders the current page of admin user rows.
 function renderAdminUsers(rows) {
     const body = document.getElementById('adminUsersTableBody');
     if (!body) {
@@ -1514,6 +1559,7 @@ function renderAdminUsers(rows) {
         .join('');
 }
 
+// Renders pagination controls for the admin user table.
 function renderAdminUserPagination(totalRows) {
     const container = document.getElementById('adminUsersPaginationControls');
     if (!container) {
@@ -1554,6 +1600,7 @@ function renderAdminUserPagination(totalRows) {
     ].join('');
 }
 
+// Shows the current user result range below the table.
 function renderAdminUserPaginationInfo(totalRows) {
     const info = document.getElementById('adminUsersPaginationInfo');
     if (!info) {
@@ -1570,6 +1617,7 @@ function renderAdminUserPaginationInfo(totalRows) {
     info.textContent = `Showing ${start} to ${end} of ${totalRows} total users`;
 }
 
+// Moves the admin user table to a requested page.
 function loadAdminUserPage(page = 1) {
     const filtered = filteredAdminUsers();
     const totalPages = Math.max(1, Math.ceil(filtered.length / ADMIN_USER_PAGE_SIZE));
@@ -1583,6 +1631,7 @@ function loadAdminUserPage(page = 1) {
     renderAdminUserPagination(filtered.length);
 }
 
+// Initializes the admin user directory.
 export async function initAdminUsers() {
     const searchInput = document.getElementById('adminUserSearch');
     const roleFilter = document.getElementById('adminUserRoleFilter');
@@ -1711,6 +1760,7 @@ export async function initAdminUsers() {
     await loadUsers();
 }
 
+// Initializes the admin user creation form.
 export async function initAdminUserCreate() {
     const form = document.getElementById('adminUserCreateForm');
     const feedback = document.getElementById('adminUserCreateFeedback');
@@ -1884,6 +1934,7 @@ export async function initAdminUserCreate() {
     syncSecurityCopy();
 }
 
+// Initializes the admin user edit form.
 export async function initAdminUserEdit() {
     const form = document.getElementById('adminUserEditForm');
     const feedback = document.getElementById('adminUserEditFeedback');
@@ -2112,6 +2163,7 @@ export async function initAdminUserEdit() {
     syncSecurityCopy();
 }
 
+// Initializes admin report tables and charts.
 export async function initAdminReports() {
     try {
         const [units, lecturers, monthly, resolution] = await Promise.all([
@@ -2183,6 +2235,7 @@ export async function initAdminReports() {
     }
 }
 
+// Initializes the admin escalations page.
 export async function initAdminEscalations() {
     const searchInput = document.getElementById('adminEscalationSearch');
     const roleFilter = document.getElementById('adminEscalationRoleFilter');
@@ -2205,6 +2258,7 @@ export async function initAdminEscalations() {
     }
 }
 
+// Initializes the admin ticket creation form.
 export async function initAdminCreateTicket() {
     readAdminCreateTicketMeta();
 
@@ -2656,6 +2710,7 @@ export async function initAdminCreateTicket() {
     syncSnapshot();
 }
 
+// Initializes the admin ticket management page.
 export async function initAdminManageTicket() {
     const currentDisputeId = disputeId();
     const ticketNumber = String(document.querySelector('.ticket-page-header')?.dataset.ticketNumber ?? 'this ticket').trim() || 'this ticket';
@@ -2832,6 +2887,7 @@ export async function initAdminManageTicket() {
     });
 }
 
+// Initializes the admin settings page.
 export async function initAdminSettings() {
     const form = document.getElementById('adminSettingsForm');
     bindAdminSettingsDangerZone();
@@ -2861,6 +2917,7 @@ export async function initAdminSettings() {
     }
 }
 
+// Initializes the admin activity page.
 export async function initAdminActivity() {
     const refresh = document.getElementById('refreshActivityBtn');
     const pagination = document.getElementById('adminActivityPaginationControls');

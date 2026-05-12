@@ -23,6 +23,7 @@ use Illuminate\Validation\ValidationException;
 
 class DisputeController extends Controller
 {
+    // Searches unit codes and names for the dispute intake autocomplete.
     public function searchUnits(Request $request)
     {
         $request->validate([
@@ -51,6 +52,7 @@ class DisputeController extends Controller
         );
     }
 
+    // Creates a student-submitted dispute and routes it to the first reviewer.
     public function store(Request $request)
     {
         $request->validate([
@@ -161,6 +163,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Returns the queue visible to a lecturer or staff reviewer.
     public function lecturerDisputes(Request $request, $lecturer_id)
     {
         $actorIdentifier = $this->actorIdentifier($request);
@@ -178,6 +181,7 @@ class DisputeController extends Controller
         return response()->json($this->decorateDisputes($disputes)->all());
     }
 
+    // Updates status, assignment, and audit history for reviewer decisions.
     public function updateStatus(Request $request)
     {
         $request->validate([
@@ -243,6 +247,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Records a reviewer response while keeping the dispute in the correct lane.
     public function respond(Request $request)
     {
         $request->validate([
@@ -299,6 +304,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Returns dispute records for one student after verifying access.
     public function studentDisputes(Request $request, $student_id)
     {
         $actorIdentifier = $this->actorIdentifier($request);
@@ -315,6 +321,7 @@ class DisputeController extends Controller
         return response()->json($this->decorateDisputes($disputes)->all());
     }
 
+    // Provides the raw activity timeline for a dispute.
     public function disputeLogs($dispute_id)
     {
         $logs = DisputeLog::where('dispute_id', $dispute_id)
@@ -324,6 +331,7 @@ class DisputeController extends Controller
         return response()->json($logs);
     }
 
+    // Supplies high-level metrics used on the admin dashboard.
     public function adminDashboard()
     {
         $averageResolution = Dispute::where('status', 'resolved')
@@ -341,6 +349,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Lists all disputes for admin management screens.
     public function allDisputes()
     {
         return response()->json(
@@ -350,6 +359,7 @@ class DisputeController extends Controller
         );
     }
 
+    // Finds students while an admin is creating a ticket on someone's behalf.
     public function adminLookupStudent(Request $request): JsonResponse
     {
         $request->validate([
@@ -392,6 +402,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Shows who can receive a unit-based dispute before the admin submits it.
     public function adminUnitRouting(Request $request): JsonResponse
     {
         $request->validate([
@@ -434,6 +445,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Creates an admin-originated ticket with routing, logging, and attachments.
     public function adminStoreTicket(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -608,6 +620,7 @@ class DisputeController extends Controller
         ], 201);
     }
 
+    // Lets admins change ticket ownership, status, priority, and notes.
     public function adminUpdateTicket(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
@@ -820,6 +833,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Builds the escalations list with reviewer and student context included.
     public function escalatedDisputes()
     {
         $disputes = Dispute::where('status', 'escalated')
@@ -904,6 +918,7 @@ class DisputeController extends Controller
         return response()->json($payload);
     }
 
+    // Aggregates disputes by unit for reports.
     public function disputesPerUnit()
     {
         $data = DB::table('disputes')
@@ -925,6 +940,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Aggregates assigned disputes by lecturer for reports.
     public function disputesPerLecturer()
     {
         $data = DB::table('disputes')
@@ -947,6 +963,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Counts disputes per month for trend charts.
     public function monthlyDisputes()
     {
         $data = DB::table('disputes')
@@ -961,6 +978,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Calculates average time-to-resolution for closed disputes.
     public function resolutionTime()
     {
         $data = DB::table('disputes')
@@ -971,6 +989,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Returns timeline entries for the dispute detail pages.
     public function timeline($id)
     {
         $logs = DisputeLog::where('dispute_id', $id)
@@ -980,6 +999,7 @@ class DisputeController extends Controller
         return response()->json($logs);
     }
 
+    // Lists uploaded evidence files for a dispute.
     public function disputeAttachments($dispute_id)
     {
         $attachments = Attachment::where('dispute_id', $dispute_id)->get();
@@ -987,6 +1007,7 @@ class DisputeController extends Controller
         return response()->json($attachments);
     }
 
+    // Streams an attachment file after the caller has passed route middleware.
     public function downloadAttachment($id)
     {
         $attachment = Attachment::find($id);
@@ -1002,6 +1023,7 @@ class DisputeController extends Controller
         return response()->download($fullPath);
     }
 
+    // Applies admin filters for status and assigned reviewer.
     public function filterDisputes(Request $request)
     {
         $request->validate([
@@ -1045,6 +1067,7 @@ class DisputeController extends Controller
         return response()->json($disputes);
     }
 
+    // Returns admin alert counts for overdue and escalated work.
     public function alerts()
     {
         $pendingCutoff = now()->subDays(2);
@@ -1076,6 +1099,7 @@ class DisputeController extends Controller
         ]);
     }
 
+    // Returns overdue counts for a lecturer or staff reviewer queue.
     public function lecturerAlerts(Request $request, $lecturer_id)
     {
         $actorIdentifier = $this->actorIdentifier($request);
@@ -1113,6 +1137,7 @@ class DisputeController extends Controller
     }
 
     // Dashboard chart endpoints
+    // Chart endpoint for monthly dispute counts.
     public function disputesPerMonth()
     {
         $data = Dispute::selectRaw('MONTH(created_at) as month, COUNT(*) as total')
@@ -1123,6 +1148,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Chart endpoint for status distribution.
     public function disputesByStatus()
     {
         $data = Dispute::selectRaw('status, COUNT(*) as total')
@@ -1132,6 +1158,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Chart endpoint for unit distribution.
     public function disputesByUnit()
     {
         $data = Dispute::selectRaw('unit_code, COUNT(*) as total')
@@ -1141,6 +1168,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Chart endpoint for lecturer workload.
     public function disputesByLecturer()
     {
         $data = Dispute::selectRaw('assigned_to, COUNT(*) as total')
@@ -1151,6 +1179,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Chart endpoint for average resolution time.
     public function averageResolutionTime()
     {
         $data = Dispute::where('status', 'resolved')
@@ -1160,6 +1189,7 @@ class DisputeController extends Controller
         return response()->json($data);
     }
 
+    // Creates a dispute while passing the initial audit log details to the model.
     private function persistDispute(array $attributes, string $performedBy, string $action, string $comment): Dispute
     {
         $dispute = new Dispute($attributes);
@@ -1170,6 +1200,7 @@ class DisputeController extends Controller
         return $dispute;
     }
 
+    // Stores uploaded evidence and records who attached it.
     private function storeDisputeAttachments(Dispute $dispute, array $files, string $uploadedBy): void
     {
         foreach ($files as $file) {
@@ -1187,6 +1218,7 @@ class DisputeController extends Controller
         }
     }
 
+    // Routes general admin intake to the current admin by default.
     private function adminIntakeRouting(string $adminIdentifier): array
     {
         return [
@@ -1198,6 +1230,7 @@ class DisputeController extends Controller
         ];
     }
 
+    // Chooses the correct lecturer when an admin creates a unit-based ticket.
     private function resolveAdminUnitCreationRouting(Student $student, string $unitCode, ?string $lecturerId): array
     {
         $selectedLecturerId = trim((string) ($lecturerId ?? ''));
@@ -1251,6 +1284,7 @@ class DisputeController extends Controller
         ];
     }
 
+    // Chooses the correct staff reviewer for admin-created general tickets.
     private function resolveAdminGeneralCreationRouting(string $assignedRole, string $departmentName, string $adminIdentifier): array
     {
         $normalizedRole = trim($assignedRole) !== '' ? trim($assignedRole) : 'admin';
@@ -1295,6 +1329,7 @@ class DisputeController extends Controller
         ];
     }
 
+    // Reads the normalized actor identifier set by middleware, with legacy fallbacks.
     private function actorIdentifier(Request $request): ?string
     {
         $identifier = $request->attributes->get('actor_identifier');
@@ -1314,6 +1349,7 @@ class DisputeController extends Controller
         return trim($fallback);
     }
 
+    // Reads the normalized actor role set by middleware, with user fallback.
     private function actorRole(Request $request): ?string
     {
         $role = $request->attributes->get('actor_role');
@@ -1325,6 +1361,7 @@ class DisputeController extends Controller
         return trim($role);
     }
 
+    // Verifies that a reviewer can read the requested queue.
     private function canAccessLecturerPortalQueue(?string $actorRole, ?string $actorIdentifier, string $requestedIdentifier): bool
     {
         if ($actorRole === 'admin') {
@@ -1338,6 +1375,7 @@ class DisputeController extends Controller
         return $actorIdentifier !== null && $actorIdentifier === trim($requestedIdentifier);
     }
 
+    // Verifies that a reviewer can respond to the selected dispute.
     private function canManageLecturerPortalDispute(Dispute $dispute, string $performedBy, ?string $actorRole): bool
     {
         if ($dispute->assigned_to !== $performedBy) {
@@ -1351,6 +1389,7 @@ class DisputeController extends Controller
         );
     }
 
+    // Staff reviewers use the lecturer portal layout for escalated work.
     private function isLecturerPortalReviewer(?string $actorRole): bool
     {
         return in_array($actorRole, ['lecturer', 'staff'], true);
@@ -1370,6 +1409,7 @@ class DisputeController extends Controller
             : ['lecturer'];
     }
 
+    // Converts an admin routing form selection into assignee fields.
     private function resolveAdminRoutingSelection(
         Dispute $dispute,
         string $routeDestination,
@@ -1402,6 +1442,7 @@ class DisputeController extends Controller
         };
     }
 
+    // Converts a lecturer routing selection into assignee fields.
     private function resolveLecturerRoutingSelection(Dispute $dispute, ?string $lecturerId): array
     {
         $selectedLecturerId = is_string($lecturerId) ? trim($lecturerId) : '';
@@ -1443,6 +1484,7 @@ class DisputeController extends Controller
         ];
     }
 
+    // Finds the best lecturer assignment for a unit and optional student course.
     private function resolveUnitLecturerRouting(string $unitCode, ?string $studentCourse): array
     {
         $normalizedUnitCode = trim((string) $unitCode);
@@ -1532,6 +1574,7 @@ class DisputeController extends Controller
             : 'Pending';
     }
 
+    // Finds the staff reviewer for a selected escalation role and stage.
     private function resolveStaffRoutingSelection(Dispute $dispute, string $staffRole, string $stage): array
     {
         $currentAssignedRole = Str::lower(trim((string) ($dispute->assigned_role ?? '')));
@@ -1566,6 +1609,7 @@ class DisputeController extends Controller
         ];
     }
 
+    // Sends department board reviews to the department-facing reviewer.
     private function resolveDepartmentBoardRoutingSelection(Dispute $dispute): array
     {
         $preferredRoute = $this->findPreferredStaffReviewerForDispute($dispute, 'hod')
@@ -1575,6 +1619,7 @@ class DisputeController extends Controller
         return $this->resolveAdminRoutingSelection($dispute, $preferredRoute, null, '');
     }
 
+    // Picks the next admin routing stage from the current dispute state.
     private function defaultAdminRoutingStage(Dispute $dispute): string
     {
         $statusKey = Str::lower(trim((string) ($dispute->status ?? 'pending')));
@@ -1629,6 +1674,7 @@ class DisputeController extends Controller
         };
     }
 
+    // Prefers staff in the dispute department before falling back to any matching role.
     private function findPreferredStaffReviewerForDispute(Dispute $dispute, string $staffRole): ?Staff
     {
         $departmentName = $this->resolveDisputeDepartmentName($dispute);
@@ -1651,6 +1697,7 @@ class DisputeController extends Controller
         return $reviewer;
     }
 
+    // Resolves department through student and unit data for routing decisions.
     private function resolveDisputeDepartmentName(Dispute $dispute): string
     {
         $studentDepartment = trim((string) (
@@ -1673,6 +1720,7 @@ class DisputeController extends Controller
         return $unitDepartment;
     }
 
+    // Builds the portal link that should appear in reviewer notifications.
     private function reviewerPortalLink(Dispute $dispute, string $assignedRole): string
     {
         return in_array($assignedRole, ['lecturer', 'hod', 'exam_officer'], true)
@@ -1689,6 +1737,7 @@ class DisputeController extends Controller
         return $roleLabel.' ('.$idLabel.')';
     }
 
+    // Adds display labels and related names before returning disputes to the UI.
     private function decorateDisputes($disputes)
     {
         $studentIds = $disputes

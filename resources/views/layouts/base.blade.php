@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 @php
+    // Resolve page metadata once so layouts and scripts can share the same context.
     use Illuminate\Support\Str;
 
     $currentPageId = trim($__env->yieldContent('page_id'));
@@ -48,9 +49,11 @@
     data-user-role="{{ auth()->user()->role ?? '' }}"
     data-user-identifier="{{ auth()->user()->identifier ?? '' }}"
 >
+{{-- Child layouts provide either the guest auth shell or the signed-in app shell. --}}
 @yield('body')
 
 @php
+    // Expose CSRF and user metadata to the browser-side modules.
     $gdsUser = auth()->check()
         ? array_merge([
             'role' => auth()->user()->role,
@@ -71,6 +74,7 @@
 @if ($isAuthPage)
     <script src="{{ asset('assets/js/login-page.js') }}"></script>
 @else
+    {{-- Portal pages need sidebar, theme, and topbar menu behavior. --}}
     <script src="{{ asset('assets/js/portal-layout.js') }}"></script>
 @endif
 @stack('scripts')
