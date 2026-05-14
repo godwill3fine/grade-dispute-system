@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
+use App\Models\Staff;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -23,12 +25,30 @@ class DatabaseSeeder extends Seeder
 
         // User::factory(10)->create();
 
-        User::query()->firstOrCreate(
-            ['email' => 'test@example.com'],
+        $adminRoleId = Role::query()->where('name', 'admin')->value('id');
+
+        Staff::query()->updateOrCreate(
+            ['staff_id' => 'SYSAD-001'],
             [
-                'name' => 'Test User',
-                'identifier' => 'ADMIN001',
+                'first_name' => 'Martin',
+                'last_name' => 'Waweru',
+                'salutation' => null,
+                'full_name' => 'Martin Waweru',
                 'role' => 'admin',
+                'department' => 'Administration',
+            ]
+        );
+
+        User::query()->updateOrCreate(
+            ['identifier' => 'SYSAD-001'],
+            [
+                'name' => 'Martin Waweru',
+                'email' => 'sysad-001@grade-dispute.local',
+                'role' => 'admin',
+                'role_id' => $adminRoleId,
+                'status' => 'active',
+                'require_password_reset' => false,
+                'manual_approval_required' => false,
                 'password' => Hash::make('password'),
             ]
         );
