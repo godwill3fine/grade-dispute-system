@@ -19,4 +19,15 @@ class Student extends Model
     {
         return $this->hasMany(Dispute::class, 'student_id');
     }
+
+    public function courseRecord()
+    {
+        return $this->belongsTo(Course::class, 'course', 'code');
+    }
+
+    public function courseLabel(): string
+    {
+        return $this->courseRecord?->display_name
+            ?? (Course::normalizeCode($this->course) ?: 'Not assigned');
+    }
 }

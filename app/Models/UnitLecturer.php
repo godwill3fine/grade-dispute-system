@@ -17,4 +17,9 @@ class UnitLecturer extends Model
     {
         return $this->belongsTo(Lecturer::class, 'lecturer_id');
     }
+
+    public function courseRecord()
+    {
+        return $this->belongsTo(Course::class, 'course', 'code');
+    }
 }
