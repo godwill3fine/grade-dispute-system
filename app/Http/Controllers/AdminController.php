@@ -4,8 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Mail\AdminUserWelcomeMail;
 use App\Models\Attachment;
-use App\Models\Department;
 use App\Models\ActivityLog;
+use App\Models\Course;
+use App\Models\Department;
 use App\Models\Dispute;
 use App\Models\DisputeLog;
 use App\Models\Lecturer;
@@ -143,7 +144,7 @@ class AdminController extends Controller
         $identifier = trim((string) $request->input('identifier'));
         $departmentName = $this->normalizeDepartmentSelection((string) $request->input('department', ''));
         $facultyName = trim((string) $request->input('faculty', ''));
-        $course = trim((string) $request->input('course', ''));
+        $course = $this->normalizeCourseSelection((string) $request->input('course', ''));
         $salutation = trim((string) $request->input('salutation', ''));
         $staffRole = $this->normalizeStaffRole((string) $request->input('staff_role', ''), $role);
         $officeLocation = trim((string) $request->input('office_location', ''));
@@ -153,7 +154,6 @@ class AdminController extends Controller
         $requirePasswordReset = $request->boolean('require_password_reset');
         $manualApprovalRequired = $request->boolean('manual_approval_required');
         $effectiveStatus = $this->effectiveAccountStatus($selectedStatus, $manualApprovalRequired);
-        $department = $this->resolveImportDepartment($departmentName, $facultyName);
         $roleIds = Role::query()->pluck('id', 'name')->all();
         $temporaryPassword = $identifier;
 
@@ -169,6 +169,8 @@ class AdminController extends Controller
                     'year' => ['Year is required for student accounts.'],
                 ]);
             }
+
+            [$departmentName, $facultyName] = $this->courseProfileDefaults($course, $departmentName, $facultyName);
         }
 
         if (in_array($role, ['lecturer', 'staff'], true) && $departmentName === '') {
@@ -176,6 +178,8 @@ class AdminController extends Controller
                 'department' => ['Department is required for lecturer and staff accounts.'],
             ]);
         }
+
+        $department = $this->resolveImportDepartment($departmentName, $facultyName);
 
         $user = DB::transaction(function () use (
             $role,
@@ -342,7 +346,7 @@ class AdminController extends Controller
         $email = Str::lower(trim((string) $request->input('email')));
         $departmentName = $this->normalizeDepartmentSelection((string) $request->input('department', ''));
         $facultyName = trim((string) $request->input('faculty', ''));
-        $course = trim((string) $request->input('course', ''));
+        $course = $this->normalizeCourseSelection((string) $request->input('course', ''));
         $year = $request->filled('year') ? (int) $request->input('year') : null;
         $salutation = trim((string) $request->input('salutation', ''));
         $staffRole = $this->normalizeStaffRole((string) $request->input('staff_role', ''), $role);
@@ -353,7 +357,6 @@ class AdminController extends Controller
         $requirePasswordReset = $request->boolean('require_password_reset');
         $manualApprovalRequired = $request->boolean('manual_approval_required');
         $effectiveStatus = $this->effectiveAccountStatus($selectedStatus, $manualApprovalRequired);
-        $department = $this->resolveImportDepartment($departmentName, $facultyName);
         $roleIds = Role::query()->pluck('id', 'name')->all();
 
         if ($role === 'student') {
@@ -368,6 +371,8 @@ class AdminController extends Controller
                     'year' => ['Year is required for student accounts.'],
                 ]);
             }
+
+            [$departmentName, $facultyName] = $this->courseProfileDefaults($course, $departmentName, $facultyName);
         }
 
         if (in_array($role, ['lecturer', 'staff'], true) && $departmentName === '') {
@@ -375,6 +380,8 @@ class AdminController extends Controller
                 'department' => ['Department is required for lecturer and staff accounts.'],
             ]);
         }
+
+        $department = $this->resolveImportDepartment($departmentName, $facultyName);
 
         $this->guardSelfAdministration(
             actor: $request->user(),
@@ -714,11 +721,13 @@ class AdminController extends Controller
         $staffRole = $this->normalizeStaffRole($this->optionalImportValue($row, 'staff_role'), $role);
         $password = $this->optionalImportValue($row, 'password');
         $usedDefaultPassword = $password === '';
-        $department = $this->resolveImportDepartment($departmentName, $facultyName);
+        $department = null;
 
         if ($role === 'student') {
-            $course = $this->requiredImportValue($row, 'course', 'course');
+            $course = $this->normalizeCourseSelection($this->requiredImportValue($row, 'course', 'course'));
             $year = $this->normalizeImportYear($this->requiredImportValue($row, 'year', 'year'));
+            [$departmentName, $facultyName] = $this->courseProfileDefaults($course, $departmentName, $facultyName);
+            $department = $this->resolveImportDepartment($departmentName, $facultyName);
 
             DB::transaction(function () use (
                 $identifier,
@@ -770,6 +779,8 @@ class AdminController extends Controller
                 ]);
             }
 
+            $department = $this->resolveImportDepartment($departmentName, $facultyName);
+
             DB::transaction(function () use (
                 $identifier,
                 $firstName,
@@ -814,6 +825,8 @@ class AdminController extends Controller
                 'department' => ['Department is required for staff imports.'],
             ]);
         }
+
+        $department = $this->resolveImportDepartment($departmentName, $facultyName);
 
         DB::transaction(function () use (
             $identifier,
@@ -1087,6 +1100,47 @@ class AdminController extends Controller
         $normalized = trim($departmentName);
 
         return $normalized === 'None / Not Applicable' ? '' : $normalized;
+    }
+
+    // Stores the abbreviation even when a full course label is submitted.
+    private function normalizeCourseSelection(string $course): string
+    {
+        $value = trim($course);
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/\(([A-Za-z0-9_-]+)\)\s*$/', $value, $matches) === 1) {
+            $codeFromLabel = Course::normalizeCode($matches[1] ?? '');
+            if ($codeFromLabel !== '' && Course::query()->whereKey($codeFromLabel)->exists()) {
+                return $codeFromLabel;
+            }
+        }
+
+        $code = Course::normalizeCode($value);
+        if ($code !== '' && Course::query()->whereKey($code)->exists()) {
+            return $code;
+        }
+
+        $courseByName = Course::query()
+            ->whereRaw('LOWER(name) = ?', [Str::lower($value)])
+            ->first();
+
+        return $courseByName ? Course::normalizeCode($courseByName->code) : $code;
+    }
+
+    // Fills student placement fields from the catalog when the form leaves them blank.
+    private function courseProfileDefaults(string $course, string $departmentName, string $facultyName): array
+    {
+        $courseRecord = Course::query()->find(Course::normalizeCode($course));
+        if (! $courseRecord) {
+            return [$departmentName, $facultyName];
+        }
+
+        return [
+            $departmentName !== '' ? $departmentName : trim((string) $courseRecord->name),
+            $facultyName !== '' ? $facultyName : trim((string) ($courseRecord->faculty ?: $courseRecord->faculty_code)),
+        ];
     }
 
     // Converts account status labels into the stored status values.
@@ -1369,7 +1423,7 @@ class AdminController extends Controller
             }
 
             $unitCode = Str::upper(trim((string) ($parts[0] ?? '')));
-            $courseCode = Str::upper(trim((string) ($parts[1] ?? '')));
+            $courseCode = $this->normalizeCourseSelection((string) ($parts[1] ?? ''));
 
             if ($unitCode === '' || $courseCode === '') {
                 throw ValidationException::withMessages([

@@ -6,6 +6,7 @@
 
 @section('content')
 @php($resolvedStudentCourse = trim((string) ($studentCourse ?? '')))
+@php($resolvedStudentCourseCode = trim((string) ($studentCourseCode ?? '')))
 <div class="page-header">
     <span class="eyebrow">NEW TICKET</span>
     <h1>Submit A Grade Dispute</h1>
@@ -47,7 +48,12 @@
                         value="{{ $resolvedStudentCourse !== '' ? $resolvedStudentCourse : 'Not set on your profile' }}"
                         disabled
                     >
-                    <span class="form-text">This is pulled from the logged-in student profile for reference and cannot be changed here.</span>
+                    <span class="form-text">
+                        This is pulled from the logged-in student profile for reference and cannot be changed here.
+                        @if($resolvedStudentCourseCode !== '')
+                            Course code: {{ $resolvedStudentCourseCode }}.
+                        @endif
+                    </span>
                 </div>
             </div>
         </div>

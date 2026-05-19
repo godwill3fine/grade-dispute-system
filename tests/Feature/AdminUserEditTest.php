@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminUserWelcomeMail;
+use App\Models\Course;
 use App\Models\Lecturer;
 use App\Models\Staff;
 use App\Models\Student;
@@ -167,6 +168,50 @@ class AdminUserEditTest extends TestCase
         $this->assertDatabaseMissing('students', [
             'reg_number' => 'USR200',
         ]);
+    }
+
+    public function test_admin_edit_page_shows_course_catalog_labels_for_students(): void
+    {
+        Course::create([
+            'code' => 'BBC',
+            'name' => 'B.Sc. Business Computing',
+            'faculty' => 'College of Pure and Applied Science',
+            'faculty_code' => 'COPAS',
+        ]);
+
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.test',
+            'identifier' => 'ADM100',
+            'role' => 'admin',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        User::create([
+            'name' => 'Taylor Student',
+            'email' => 'taylor.student@example.test',
+            'identifier' => 'USR200',
+            'role' => 'student',
+            'status' => 'active',
+            'password' => 'password',
+        ]);
+
+        Student::create([
+            'reg_number' => 'USR200',
+            'first_name' => 'Taylor',
+            'last_name' => 'Student',
+            'course' => 'BBC',
+            'year' => 2,
+            'department' => 'Computer Science',
+            'faculty' => 'COPAS',
+        ]);
+
+        $this
+            ->actingAs($admin)
+            ->get(route('portal.admin.users.edit', ['identifier' => 'USR200']))
+            ->assertOk()
+            ->assertSee('B.Sc. Business Computing (BBC)');
     }
 
     public function test_admin_can_send_password_reset_instructions_from_the_edit_page(): void

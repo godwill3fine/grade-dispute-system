@@ -369,6 +369,7 @@ class DisputeController extends Controller
         $query = trim((string) $request->query('q', ''));
 
         $student = Student::query()
+            ->with('courseRecord')
             ->leftJoin('users as student_users', function ($join) {
                 $join->on('student_users.identifier', '=', 'students.reg_number')
                     ->where('student_users.role', '=', 'student');
@@ -396,6 +397,7 @@ class DisputeController extends Controller
             'name' => trim((string) (($student->user_name ?? null) ?: $student->display_name)),
             'email' => trim((string) ($student->user_email ?? '')),
             'course' => trim((string) ($student->course ?? '')),
+            'course_label' => $student->courseLabel(),
             'year_label' => filled($student->year) ? 'Year '.$student->year : 'Not available',
             'department' => trim((string) ($student->department ?? '')),
             'faculty' => trim((string) ($student->faculty ?? '')),
@@ -1755,6 +1757,7 @@ class DisputeController extends Controller
             ->values();
 
         $students = Student::query()
+            ->with('courseRecord')
             ->whereIn('reg_number', $studentIds)
             ->get()
             ->keyBy('reg_number');
@@ -1771,6 +1774,7 @@ class DisputeController extends Controller
             return array_merge($dispute->toArray(), [
                 'student_name' => trim((string) ($student?->display_name ?? '')),
                 'student_course' => trim((string) ($student?->course ?? '')),
+                'student_course_label' => $student?->courseLabel() ?? '',
                 'unit_name' => trim((string) ($unit?->unit_name ?? '')),
             ]);
         });

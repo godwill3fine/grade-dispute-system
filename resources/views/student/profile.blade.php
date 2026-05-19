@@ -63,6 +63,13 @@
 
                     <div class="profile-info-box">
                         <div class="info-eyebrow">
+                            <span class="material-symbols-outlined">school</span> Course
+                        </div>
+                        <div class="info-value">{{ $studentProfile['course'] }}</div>
+                    </div>
+
+                    <div class="profile-info-box">
+                        <div class="info-eyebrow">
                             <span class="material-symbols-outlined">menu_book</span> Department
                         </div>
                         <div class="info-value">{{ $studentProfile['department_name'] }}</div>

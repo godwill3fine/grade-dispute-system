@@ -105,7 +105,12 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="adminUserCourse">Course *</label>
-                                <input id="adminUserCourse" name="course" type="text" class="form-control" placeholder="e.g. BSc Computer Science" data-required-roles="student">
+                                <select id="adminUserCourse" name="course" class="form-control" data-required-roles="student">
+                                    <option value="">Select a course...</option>
+                                    @foreach (($adminUserFormMeta['courses'] ?? []) as $course)
+                                        <option value="{{ $course['code'] }}">{{ $course['label'] }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="adminUserYear">Year *</label>

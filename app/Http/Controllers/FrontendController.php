@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attachment;
+use App\Models\Course;
 use App\Models\Department;
 use App\Models\Dispute;
 use App\Models\DisputeLog;
@@ -171,10 +172,14 @@ class FrontendController extends Controller
     {
         $this->ensureRole('student');
 
-        $student = Student::find(Auth::user()?->identifier);
+        $student = Student::query()
+            ->with('courseRecord')
+            ->find(Auth::user()?->identifier);
+        $studentCourseCode = Course::normalizeCode($student?->course ?? '');
 
         return view('student.submit-dispute', [
-            'studentCourse' => trim((string) ($student?->course ?? '')),
+            'studentCourse' => $this->courseDisplayLabel($studentCourseCode),
+            'studentCourseCode' => $studentCourseCode,
         ]);
     }
 
@@ -356,7 +361,10 @@ class FrontendController extends Controller
         $context = $this->buildAdminUserEditContext($user);
 
         return view('admin.user-edit', [
-            'adminUserFormMeta' => $this->adminUserFormMeta($context['department'] ?? null),
+            'adminUserFormMeta' => $this->adminUserFormMeta(
+                $context['department'] ?? null,
+                $context['course'] ?? null,
+            ),
             'adminUserEdit' => $context,
         ]);
     }
@@ -410,13 +418,17 @@ class FrontendController extends Controller
         $user = Auth::user();
         $user?->loadMissing('department');
 
-        $student = Student::query()->find($user?->identifier);
-        $course = trim((string) ($student?->course ?? ''));
+        $student = Student::query()
+            ->with('courseRecord')
+            ->find($user?->identifier);
+        $course = Course::normalizeCode($student?->course ?? '');
+        $courseLabel = $student?->courseRecord?->display_name
+            ?? ($course !== '' ? $course : 'Not assigned');
         $departmentName = trim((string) (data_get($student, 'department') ?? $user?->department?->name ?? ''));
         $facultyName = trim((string) (data_get($student, 'faculty') ?? $user?->department?->faculty ?? ''));
         $yearLabel = filled($student?->year) ? 'Year '.$student->year : 'Not available';
         $profileMeta = array_filter([
-            $course !== '' ? $course : null,
+            $course !== '' ? $courseLabel : null,
             filled($student?->year) ? $yearLabel : null,
         ]);
 
@@ -425,7 +437,8 @@ class FrontendController extends Controller
                 'name' => $user?->name ?? $student?->full_name ?? 'Student',
                 'identifier' => $user?->identifier ?? $student?->reg_number ?? 'Not available',
                 'email' => trim((string) ($user?->email ?? '')) !== '' ? $user->email : 'No email on file',
-                'course' => $course !== '' ? $course : 'Not assigned',
+                'course' => $courseLabel,
+                'course_code' => $course,
                 'year_label' => $yearLabel,
                 'profile_meta' => !empty($profileMeta) ? implode(', ', $profileMeta) : 'Student portal account',
                 'department_name' => $departmentName !== '' ? $departmentName : 'Not assigned',
@@ -1189,7 +1202,7 @@ class FrontendController extends Controller
     }
 
     // Builds role, department, and assignment options for admin user forms.
-    private function adminUserFormMeta(?string $selectedDepartment = null): array
+    private function adminUserFormMeta(?string $selectedDepartment = null, ?string $selectedCourse = null): array
     {
         $departments = Department::query()
             ->orderBy('name')
@@ -1206,8 +1219,11 @@ class FrontendController extends Controller
             array_unshift($departments, $selectedDepartment);
         }
 
+        $courses = $this->courseOptions($selectedCourse);
+
         return [
             'departments' => $departments,
+            'courses' => $courses,
             'roles' => ['student', 'lecturer', 'staff', 'admin'],
             'staff_roles' => ['hod', 'exam_officer'],
             'statuses' => ['pending invite', 'active', 'inactive'],
@@ -1246,7 +1262,8 @@ class FrontendController extends Controller
 
         $role = Str::lower(trim((string) $user->role));
         $status = $this->normalizeAdminUserStatus($user->status);
-        $course = trim((string) data_get($profile, 'course', ''));
+        $course = Course::normalizeCode(data_get($profile, 'course', ''));
+        $courseLabel = $this->courseDisplayLabel($course);
         $salutation = trim((string) data_get($profile, 'salutation', ''));
         $staffRole = $role === 'staff' ? trim((string) data_get($profile, 'role', '')) : '';
         $year = filled(data_get($profile, 'year')) ? (string) data_get($profile, 'year') : '';
@@ -1292,11 +1309,12 @@ class FrontendController extends Controller
             'faculty' => $faculty !== '' ? $faculty : 'Not assigned',
             'salutation' => $salutation,
             'course' => $course,
+            'course_label' => $courseLabel,
             'year' => $year,
             'campus' => $officeLocation !== '' ? $officeLocation : 'Main Campus',
             'office_location' => $officeLocation,
             'responsibility' => match ($role) {
-                'student' => $course !== '' ? 'Course '.$course.' dispute submissions' : 'Student dispute submissions',
+                'student' => $course !== '' ? 'Course '.$courseLabel.' dispute submissions' : 'Student dispute submissions',
                 'lecturer' => 'Assessment review and ticket responses for mapped teaching assignments',
                 'staff' => match ($staffRole) {
                     'hod' => 'Department-level escalations and lecturer-side review controls',
@@ -1436,9 +1454,53 @@ class FrontendController extends Controller
         return Str::upper(trim((string) $unitCode)).' | '.$this->normalizeCourseCode($course);
     }
 
+    private function courseOptions(?string $selectedCourse = null): array
+    {
+        $courses = Course::query()
+            ->where('code', '!=', 'COMMON')
+            ->orderBy('name')
+            ->get(['code', 'name', 'faculty', 'faculty_code'])
+            ->map(fn (Course $course): array => [
+                'code' => Course::normalizeCode($course->code),
+                'name' => trim((string) $course->name),
+                'label' => $course->display_name,
+                'faculty' => trim((string) $course->faculty),
+                'faculty_code' => trim((string) $course->faculty_code),
+            ])
+            ->values()
+            ->all();
+
+        $selectedCourse = Course::normalizeCode($selectedCourse);
+        $courseCodes = array_column($courses, 'code');
+
+        if ($selectedCourse !== '' && ! in_array($selectedCourse, $courseCodes, true)) {
+            array_unshift($courses, [
+                'code' => $selectedCourse,
+                'name' => $selectedCourse,
+                'label' => $selectedCourse,
+                'faculty' => '',
+                'faculty_code' => '',
+            ]);
+        }
+
+        return $courses;
+    }
+
+    private function courseDisplayLabel(?string $course): string
+    {
+        $courseCode = Course::normalizeCode($course);
+        if ($courseCode === '') {
+            return '';
+        }
+
+        $courseRecord = Course::query()->find($courseCode);
+
+        return $courseRecord?->display_name ?? $courseCode;
+    }
+
     private function normalizeCourseCode(?string $course): string
     {
-        return Str::upper(trim((string) $course));
+        return Course::normalizeCode($course);
     }
 
     // Resolves display details for the actor who created or updated a dispute.

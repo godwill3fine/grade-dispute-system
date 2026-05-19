@@ -1979,6 +1979,12 @@ export async function initAdminUserEdit() {
 
     const selectedStatus = () => String(form?.querySelector('input[name="status"]:checked')?.value ?? '').trim().toLowerCase();
     const selectedStaffRole = () => String(staffRoleSelect?.value ?? '').trim().toLowerCase();
+    const selectedCourseLabel = () => {
+        const optionText = String(courseInput?.selectedOptions?.[0]?.textContent ?? '').trim();
+        const value = String(courseInput?.value ?? '').trim();
+
+        return value ? (optionText || value) : '';
+    };
 
     const syncResponsibilityPreview = () => {
         if (!responsibilityInput) {
@@ -1986,7 +1992,7 @@ export async function initAdminUserEdit() {
         }
 
         const role = String(roleSelect?.value ?? '').trim().toLowerCase();
-        const course = String(courseInput?.value ?? '').trim();
+        const course = selectedCourseLabel();
         const staffRole = selectedStaffRole();
 
         responsibilityInput.value = role === 'student'
@@ -2099,6 +2105,7 @@ export async function initAdminUserEdit() {
 
     roleSelect?.addEventListener('change', syncRoleFields);
     courseInput?.addEventListener('input', syncResponsibilityPreview);
+    courseInput?.addEventListener('change', syncResponsibilityPreview);
     staffRoleSelect?.addEventListener('change', syncResponsibilityPreview);
     form?.querySelectorAll('input[name="status"]').forEach((input) => {
         input.addEventListener('change', syncSecurityCopy);
@@ -2475,7 +2482,7 @@ export async function initAdminCreateTicket() {
             }
 
             if (studentCourseInput) {
-                studentCourseInput.value = String(response?.course ?? '').trim();
+                studentCourseInput.value = String(response?.course_label ?? response?.course ?? '').trim();
             }
 
             if (studentYearInput) {

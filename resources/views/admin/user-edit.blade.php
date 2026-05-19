@@ -110,7 +110,12 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="adminUserEditCourse">Course *</label>
-                                <input id="adminUserEditCourse" name="course" type="text" class="form-control" value="{{ $adminUserEdit['course'] }}" data-required-roles="student">
+                                <select id="adminUserEditCourse" name="course" class="form-control" data-required-roles="student">
+                                    <option value="">Select a course...</option>
+                                    @foreach (($adminUserFormMeta['courses'] ?? []) as $course)
+                                        <option value="{{ $course['code'] }}" @selected($course['code'] === ($adminUserEdit['course'] ?? ''))>{{ $course['label'] }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="adminUserEditYear">Year *</label>
